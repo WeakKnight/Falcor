@@ -289,7 +289,7 @@ void evalDirect(const PathTracerData pt, ShadingData sd, inout PathData path)
     }
 }
 
-void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
+void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path, out float3 directColor)
 {
     // Always output directly emitted light from the primary hit.
     // This is independent of whether emissive materials are treated as light sources or not.
@@ -301,6 +301,7 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
 
     // Note: Do not unroll loop even though iteration count is statically known,
     // as the shader gets very large and runs slower on current generation GPUs.
+
     [loop]
     for (uint depth = 0; depth < kIterationCount; depth++)
     {
@@ -314,6 +315,11 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
         if (kUseNEE && supportsNEE && (kUseLightsInVolumes || !path.isInsideVolume()))
         {
             evalDirect(pt, sd, path);
+        }
+
+        if(depth == 0)
+        {
+            directColor = path.L - sd.emissive;
         }
 
         // Russian roulette to stochastically terminate the path.
@@ -330,7 +336,10 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
         const float3 rayDirIn = path.dir;
 
         // Generate next path segment.
-        if (!generateScatterRay(pt.params, sd, path)) return;
+        if (!generateScatterRay(pt.params, sd, path)) 
+        {
+            return;
+        }
 
         // Scatter the ray footprint out of the surface. Primary bounce is handled at footprint creation time.
         if (depth > 0)
@@ -345,10 +354,16 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
         const bool isLastVertex = path.length == kMaxBounces || path.nonSpecularBounces > kMaxNonSpecularBounces;
 
         // Terminate if this is the last path vertex and light sampling already completely sampled incident radiance.
-        if (isLastVertex && (kUseNEE && !kUseMIS && path.isLightSamplable())) return;
+        if (isLastVertex && (kUseNEE && !kUseMIS && path.isLightSamplable())) 
+        {
+            return;
+        }
 
         // Terminate caustics paths.
-        if (kDisableCaustics && path.isSpecular() && path.nonSpecularBounces > 0) return;
+        if (kDisableCaustics && path.isSpecular() && path.nonSpecularBounces > 0) 
+        {
+            return;
+        }
 
         // Trace scatter ray.
         if (traceScatterRay(path.origin, path.dir, path.interiorList, path.hit))
@@ -362,6 +377,9 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
         }
 
         // Terminate after handling the last path vertex.
-        if (isLastVertex) return;
+        if (isLastVertex) 
+        {
+            return;
+        }
     }
 }
