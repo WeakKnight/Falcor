@@ -170,9 +170,8 @@ void rayGen()
                 path.rayFootprint = RayFootprint.create(hit, launchIndex, launchDim, rayOrigin, gScene.camera.getPosition(), sd.faceN, sd.N, gData.params.screenSpacePixelSpreadAngle, sd.linearRoughness, path.isSpecular());
             }
 
-            float3 directColor;
             // Trace the path.
-            tracePath(gData, sd, path, directColor);
+            tracePath(gData, sd, path);
 
             logPathLength(path.length);
 
@@ -180,7 +179,6 @@ void rayGen()
             // Note the comparison is written so that NaNs propagate (unless the compiler rewrites it).
             // TODO: Check the generated code that this is the case.
             outColor += gData.params.clampSamples && path.L > gData.params.clampThreshold ? gData.params.clampThreshold : path.L;
-            outColor -= directColor;
         }
 
         // We're done accumulating over all samples.
