@@ -171,14 +171,6 @@ namespace Falcor
                 desc.AnyHitShaderImport = ahsName.empty() ? nullptr : ahsName.c_str();
                 desc.ClosestHitShaderImport = chsName.empty() ? nullptr : chsName.c_str();
                 desc.HitGroupExport = exportName.c_str();
-                
-                /*
-                If we have intersection shaders, we cannot use D3D12_HIT_GROUP_TYPE_TRIANGLES.
-                */
-                if (desc.IntersectionShaderImport)
-                {
-                    desc.Type = D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE;
-                }
 
                 subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
                 subobject.pDesc = &desc;
