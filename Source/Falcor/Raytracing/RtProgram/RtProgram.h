@@ -85,7 +85,7 @@ namespace Falcor
             Desc& addRayGen(const std::string& raygen);
             Desc& addMiss(uint32_t missIndex, const std::string& miss);
             Desc& addHitGroup(uint32_t hitIndex, const std::string& closestHit, const std::string& anyHit = "");
-
+            Desc& addHitGroup(uint32_t hitIndex, const std::string& closestHit, const std::string& anyHit, const std::string& intersection);
             Desc& addAABBHitGroup(uint32_t hitIndex, const std::string& closestHit, const std::string& anyHit = "");
             Desc& addIntersection(uint32_t typeIndex, const std::string& intersection);
             Desc& addDefine(const std::string& define, const std::string& value);

@@ -105,6 +105,37 @@ namespace Falcor
         return *this;
     }
 
+    RtProgram::Desc& RtProgram::Desc::addHitGroup(uint32_t hitIndex, const std::string& closestHit, const std::string& anyHit, const std::string& intersection /* = "" */)
+    {
+        if(hitIndex >= mHitGroups.size())
+        {
+            mHitGroups.resize(hitIndex+1);
+        }
+        else if(mHitGroups[hitIndex].groupIndex >= 0)
+        {
+            logError("already have a hit group at that index");
+        }
+
+        auto groupIndex = int32_t(mBaseDesc.mGroups.size());
+        mBaseDesc.beginEntryPointGroup();
+        if(closestHit.length())
+        {
+            mBaseDesc.entryPoint(ShaderType::ClosestHit, closestHit);
+        }
+        if(anyHit.length())
+        {
+            mBaseDesc.entryPoint(ShaderType::AnyHit, anyHit);
+        }
+        if(intersection.length())
+        {
+            mBaseDesc.entryPoint(ShaderType::Intersection, intersection);
+        }
+
+        DescExtra::GroupInfo info = { mBaseDesc.mActiveGroup };
+        mHitGroups[hitIndex] = info;
+        return *this;
+    }
+
     RtProgram::Desc& RtProgram::Desc::addAABBHitGroup(uint32_t hitIndex, const std::string& closestHit, const std::string& anyHit /*= ""*/)
     {
         if (hitIndex >= mAABBHitGroupEntryPoints.size())

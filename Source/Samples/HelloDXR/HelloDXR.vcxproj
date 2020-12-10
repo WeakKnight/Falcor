@@ -73,6 +73,7 @@
       <PreprocessorDefinitions>WIN32;SOLUTION_DIR=R"($(SolutionDir))";_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -91,6 +92,7 @@
       <PreprocessorDefinitions>WIN32;SOLUTION_DIR=R"($(SolutionDir))";NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
