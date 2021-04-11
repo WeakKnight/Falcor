@@ -118,8 +118,9 @@ namespace Falcor
                 { aiTextureType_SPECULAR, 0, Material::TextureSlot::Specular },
                 { aiTextureType_EMISSIVE, 0, Material::TextureSlot::Emissive },
                 { aiTextureType_AMBIENT, 0, Material::TextureSlot::Occlusion },
-                // OBJ does not offer a normal map, thus we use the bump map instead.
-                { aiTextureType_HEIGHT, 0, Material::TextureSlot::Normal },
+                //// OBJ does not offer a normal map, thus we use the bump map instead.
+                //{ aiTextureType_HEIGHT, 0, Material::TextureSlot::Normal },
+                { aiTextureType_NORMALS, 0, Material::TextureSlot::Normal },
                 { aiTextureType_DISPLACEMENT, 0, Material::TextureSlot::Normal },
             },
             // GLTF2 mappings
@@ -836,10 +837,21 @@ namespace Falcor
             }
 
             // Double-Sided
-            int isDoubleSided;
-            if (pAiMaterial->Get(AI_MATKEY_TWOSIDED, isDoubleSided) == AI_SUCCESS)
+            if (importMode == ImportMode::OBJ)
             {
-                pMaterial->setDoubleSided((isDoubleSided != 0));
+                int shadingModel;
+                if (pAiMaterial->Get(AI_MATKEY_SHADING_MODEL, shadingModel) == AI_SUCCESS)
+                {
+                    pMaterial->setDoubleSided(shadingModel == 2); // shadingModel = illum + 1 (setting illum 1 eanbles doubleSided)
+                }
+            }
+            else
+            {
+                int isDoubleSided;
+                if (pAiMaterial->Get(AI_MATKEY_TWOSIDED, isDoubleSided) == AI_SUCCESS)
+                {
+                    pMaterial->setDoubleSided((isDoubleSided != 0));
+                }
             }
 
             // Handle GLTF2 PBR materials
