@@ -543,6 +543,29 @@ namespace Falcor
                 mesh.normals.pData = reinterpret_cast<float3*>(pAiMesh->mNormals);
                 mesh.normals.frequency = SceneBuilder::Mesh::AttributeFrequency::Vertex;
 
+                // fix some funny situations
+                std::vector<uint32_t> newIndices = indexList;
+                for (uint32_t face = 0; face < mesh.faceCount; face++)
+                {
+                    uint32_t v0 = indexList[3 * face];
+                    uint32_t v1 = indexList[3 * face + 1];
+                    uint32_t v2 = indexList[3 * face + 2];
+                    float3 p0 = mesh.positions.pData[v0];
+                    float3 p1 = mesh.positions.pData[v1];
+                    float3 p2 = mesh.positions.pData[v2];
+
+                    float3 faceN = cross(p1 - p0, p2 - p0);
+                    float3 vertexN = mesh.normals.pData[v0];
+
+                    if (dot(faceN, vertexN) < 0) // > 90 degrees -> winding order is wrong
+                    {
+                        newIndices[3 * face] = indexList[3 * face + 2];
+                        newIndices[3 * face + 2] = indexList[3 * face];
+                    }
+                }
+                mesh.pIndices = newIndices.data();
+
+
                 if (pAiMesh->HasTextureCoords(0))
                 {
                     createTexCrdList(pAiMesh->mTextureCoords[0], pAiMesh->mNumVertices, texCrds);
