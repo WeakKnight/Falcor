@@ -146,5 +146,23 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
     float4 color = gColorTex.Sample(gColorSampler, texC);
     float3 finalColor = color.rgb;
-    return float4(toneMapAces(finalColor), color.a);
+
+#ifdef _TONE_MAPPER_AUTO_EXPOSURE
+    // apply auto exposure
+    float avgLuminance = exp2(gLuminanceTex.SampleLevel(gLuminanceTexSampler, texC, kLuminanceLod).r);
+    float pixelLuminance = calcLuminance(finalColor);
+    finalColor *= (kExposureKey / avgLuminance);
+#endif
+
+    // apply color grading
+    finalColor = mul(finalColor, (float3x3) gParams.colorTransform);
+
+    // apply tone mapping
+    finalColor = toneMap(finalColor);
+
+#ifdef _TONE_MAPPER_CLAMP
+    finalColor = saturate(finalColor);
+#endif
+
+    return float4(finalColor, color.a);
 }
