@@ -343,7 +343,7 @@ void tracePath(const PathTracerData pt, ShadingData sd, inout PathData path)
         const float3 rayDirIn = path.dir;
 
         // Generate next path segment.
-        if (!generateScatterRay(pt.params, sd, path)) return;
+        if (!generateScatterRay(pt.params, sd, path, path.sg)) return;
 
         // Scatter the ray footprint out of the surface. Primary bounce is handled at footprint creation time.
         if (depth > 0)
