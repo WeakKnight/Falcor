@@ -535,6 +535,12 @@
     <ClInclude Include="Utils\Sampling\AliasTable.h">
       <Filter>Utils\Sampling</Filter>
     </ClInclude>
+    <ClInclude Include="Utils\VirtualLight\BoundingBoxAccelerationStructureBuilder.h">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\VirtualLight\VirtualLightContainer.h">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Core">
@@ -686,6 +692,9 @@
     </Filter>
     <Filter Include="Experimental\Scene\Volume">
       <UniqueIdentifier>{b71b1c11-7080-4491-9571-9daad77e3a75}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utils\VirtualLight">
+      <UniqueIdentifier>{f5e4247a-d92b-414c-8e7e-bc928258135c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -1266,6 +1275,12 @@
     <ClCompile Include="Utils\Sampling\AliasTable.cpp">
       <Filter>Utils\Sampling</Filter>
     </ClCompile>
+    <ClCompile Include="Utils\VirtualLight\BoundingBoxAccelerationStructureBuilder.cpp">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClCompile>
+    <ClCompile Include="Utils\VirtualLight\VirtualLightContainer.cpp">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="dependencies.xml" />
@@ -1648,6 +1663,9 @@
     </ShaderSource>
     <ShaderSource Include="Utils\Sampling\AliasTable.slang">
       <Filter>Utils\Sampling</Filter>
+    </ShaderSource>
+    <ShaderSource Include="Utils\VirtualLight\VirtualLightContainer.slang">
+      <Filter>Utils\VirtualLight</Filter>
     </ShaderSource>
   </ItemGroup>
 </Project>

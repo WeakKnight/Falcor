@@ -121,6 +121,8 @@
     <ClInclude Include="Core\State\StateGraph.h" />
     <ClInclude Include="Core\Window.h" />
     <ClInclude Include="Experimental\Scene\Lights\EmissiveLightSampler.h" />
+    <ClInclude Include="Utils\VirtualLight\BoundingBoxAccelerationStructureBuilder.h" />
+    <ClInclude Include="Utils\VirtualLight\VirtualLightContainer.h" />
     <ShaderSource Include="Experimental\Scene\Lights\BuildTriangleList.cs.slang" />
     <ShaderSource Include="Core\API\Blit.slang" />
     <ClInclude Include="Experimental\Scene\Lights\EmissivePowerSampler.h" />
@@ -322,6 +324,7 @@
     <ShaderSource Include="Utils\Timing\GpuTimer.slang" />
     <ShaderSource Include="Utils\UI\Gui.slang" />
     <ShaderSource Include="Utils\UI\TextRenderer.slang" />
+    <ShaderSource Include="Utils\VirtualLight\VirtualLightContainer.slang" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Externals\.packman\dear_imgui\imgui.cpp">
@@ -708,6 +711,8 @@
     <ClCompile Include="Utils\UI\TextRenderer.cpp" />
     <ClCompile Include="Utils\Video\VideoEncoder.cpp" />
     <ClCompile Include="Utils\Video\VideoEncoderUI.cpp" />
+    <ClCompile Include="Utils\VirtualLight\BoundingBoxAccelerationStructureBuilder.cpp" />
+    <ClCompile Include="Utils\VirtualLight\VirtualLightContainer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ShaderSource Include="Experimental\Scene\Lights\EmissiveIntegrator.ps.slang" />

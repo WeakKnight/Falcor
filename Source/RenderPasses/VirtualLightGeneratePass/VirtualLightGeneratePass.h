@@ -25,65 +25,44 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-#include "PassLibraryTemplate.h"
+#pragma once
+#include "Falcor.h"
+#include "FalcorExperimental.h"
+#include "Utils/VirtualLight/VirtualLightContainer.h"
+#include "Utils/Sampling/SampleGenerator.h"
 
+using namespace Falcor;
 
-namespace
+class VirtualLightGeneratePass : public RenderPass
 {
-    const char kDesc[] = "Insert pass description here";    
-}
+public:
+    using SharedPtr = std::shared_ptr<VirtualLightGeneratePass>;
 
-// Don't remove this. it's required for hot-reload to function properly
-extern "C" __declspec(dllexport) const char* getProjDir()
-{
-    return PROJECT_DIR;
-}
+    /** Create a new render pass object.
+        \param[in] pRenderContext The render context.
+        \param[in] dict Dictionary of serialized parameters.
+        \return A new object, or an exception is thrown if creation failed.
+    */
+    static SharedPtr create(RenderContext* pRenderContext = nullptr, const Dictionary& dict = {});
 
-static void regPythonApi(pybind11::module& m)
-{
-    pybind11::class_<RenderPassTemplate, RenderPass, RenderPassTemplate::SharedPtr> pass(m, "RenderPassTemplate");
-}
+    virtual std::string getDesc() override;
+    virtual Dictionary getScriptingDictionary() override;
+    virtual RenderPassReflection reflect(const CompileData& compileData) override;
+    virtual void compile(RenderContext* pContext, const CompileData& compileData) override {}
+    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
+    virtual void renderUI(Gui::Widgets& widget) override;
+    virtual void setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene) override;
+    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
+    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
-extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
-{
-    lib.registerClass("RenderPassTemplate", kDesc, RenderPassTemplate::create);
-    ScriptBindings::registerBinding(regPythonApi);
-}
+private:
+    VirtualLightGeneratePass() = default;
 
-RenderPassTemplate::SharedPtr RenderPassTemplate::create(RenderContext* pRenderContext, const Dictionary& dict)
-{
-    SharedPtr pPass = SharedPtr(new RenderPassTemplate);
-    for (const auto& [key, value] : dict)
-    {
-    }
-    return pPass;
-}
-
-std::string RenderPassTemplate::getDesc()
-{
-    return kDesc;
-}
-
-Dictionary RenderPassTemplate::getScriptingDictionary()
-{
-    return Dictionary();
-}
-
-RenderPassReflection RenderPassTemplate::reflect(const CompileData& compileData)
-{
-    // Define the required resources here
-    RenderPassReflection reflector;
-    //reflector.addOutput("dst");
-    //reflector.addInput("src");
-    return reflector;
-}
-
-void RenderPassTemplate::execute(RenderContext* pRenderContext, const RenderData& renderData)
-{
-    // renderData holds the requested resources
-    // auto& pTexture = renderData["src"]->asTexture();
-}
-
-void RenderPassTemplate::renderUI(Gui::Widgets& widget)
-{
-}
+    // Internal state
+    Scene::SharedPtr mpScene;
+    uint mRaySampleNum = 100000u;
+    float mBoundBoxRadius = 0.006f;
+    SampleGenerator::SharedPtr mpSampleGenerator;
+    ComputePass::SharedPtr mpComputePass;
+    VirtualLightContainer::SharedPtr mpVirtualLightContainer;
+};

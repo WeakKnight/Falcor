@@ -11,11 +11,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{E484AEEC-ED88-408E-ADA5-66DF6301D75B}</ProjectGuid>
+    <ProjectGuid>{8F5021A0-B44D-487E-A5B9-B14E5B34EE88}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>PassLibraryTemplate</RootNamespace>
+    <RootNamespace>VirtualLightGeneratePass</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
-    <ProjectName>PassLibraryTemplate</ProjectName>
+    <ProjectName>VirtualLightGeneratePass</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -25,15 +25,18 @@
     <Import Project="..\..\Falcor\Falcor.props" />
   </ImportGroup>
   <ItemGroup>
-    <ClCompile Include="PassLibraryTemplate.cpp" />
+    <ClCompile Include="VirtualLightGeneratePass.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="PassLibraryTemplate.h" />
+    <ClInclude Include="VirtualLightGeneratePass.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Falcor\Falcor.vcxproj">
       <Project>{2c535635-e4c5-4098-a928-574f0e7cd5f9}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ShaderSource Include="VirtualLightGenerate.cs.slang" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
