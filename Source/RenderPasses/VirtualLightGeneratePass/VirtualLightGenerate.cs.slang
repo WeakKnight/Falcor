@@ -14,6 +14,7 @@ import Utils.VirtualLight.VirtualLightContainer;
 
 cbuffer CB
 {
+    uint2 gViewportDims;
     VirtualLightContainer gVirtualLightContainer;
 }
 

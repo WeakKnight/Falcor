@@ -25,15 +25,17 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-#include "VirtualLightGeneratePass.h"
-
+#include "VirtualLightVisPass.h"
+#include "Utils/VirtualLight/VirtualLightContainer.h"
 
 namespace
 {
     const char kDummy[] = "dummy";
-    const char kDesc[] = "Place initial virtual light samples";
-    const char kRaySampleNum[] = "raySampleNum";
-    const char kBoundBoxRadius[] = "boundBoxRadius";
+    const char kDesc[] = "Insert pass description here";
+    const char kRadius[] = "radius";
+    
+    const char kPosChannel[] = "pos";
+    const char kOutputChannel[] = "output";
 
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
@@ -45,90 +47,89 @@ extern "C" __declspec(dllexport) const char* getProjDir()
     return PROJECT_DIR;
 }
 
-extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
+static void regPythonApi(pybind11::module& m)
 {
-    lib.registerClass("VirtualLightGeneratePass", kDesc, VirtualLightGeneratePass::create);
+    pybind11::class_<VirtualLightVisPass, RenderPass, VirtualLightVisPass::SharedPtr> pass(m, "VirtualLightVisPass");
 }
 
-VirtualLightGeneratePass::SharedPtr VirtualLightGeneratePass::create(RenderContext* pRenderContext, const Dictionary& dict)
+extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
 {
-    SharedPtr pPass = SharedPtr(new VirtualLightGeneratePass);
+    lib.registerClass("VirtualLightVisPass", kDesc, VirtualLightVisPass::create);
+    ScriptBindings::registerBinding(regPythonApi);
+}
+
+VirtualLightVisPass::SharedPtr VirtualLightVisPass::create(RenderContext* pRenderContext, const Dictionary& dict)
+{
+    SharedPtr pPass = SharedPtr(new VirtualLightVisPass);
     for (const auto& [key, value] : dict)
     {
-        if (key == kRaySampleNum)
+        if (key == kRadius)
         {
-            pPass->mRaySampleNum = value;
-        }
-        else if (key == kBoundBoxRadius)
-        {
-            pPass->mBoundBoxRadius = value;
+            pPass->mRadius = value;
         }
     }
-    pPass->mpVirtualLightContainer = VirtualLightContainer::create(pPass->mRaySampleNum, pPass->mBoundBoxRadius);
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
 
     Program::Desc desc;
-    desc.addShaderLibrary("RenderPasses/VirtualLightGeneratePass/VirtualLightGenerate.cs.slang").csEntry("main").setShaderModel("6_5");
+    desc.addShaderLibrary("RenderPasses/VirtualLightVisPass/VirtualLightVis.cs.slang").csEntry("main").setShaderModel("6_5");
     pPass->mpComputePass = ComputePass::create(desc, Program::DefineList(), false);
+
     return pPass;
 }
 
-std::string VirtualLightGeneratePass::getDesc()
+std::string VirtualLightVisPass::getDesc()
 {
     return kDesc;
 }
 
-Dictionary VirtualLightGeneratePass::getScriptingDictionary()
+Dictionary VirtualLightVisPass::getScriptingDictionary()
 {
     Dictionary d;
-    d[kRaySampleNum] = mRaySampleNum;
-    d[kBoundBoxRadius] = mBoundBoxRadius;
+    d[kRadius] = mRadius;
     return d;
 }
 
-RenderPassReflection VirtualLightGeneratePass::reflect(const CompileData& compileData)
+RenderPassReflection VirtualLightVisPass::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    reflector.addInput("aldebo", "aldedo texture from GBuffer");
-    reflector.addOutput(kDummy, "useless dummy Output");
+    reflector.addInput(kDummy, "");
+    reflector.addInput(kPosChannel, "pos texture").bindFlags(Falcor::ResourceBindFlags::UnorderedAccess | Falcor::ResourceBindFlags::ShaderResource);
+    reflector.addOutput(kOutputChannel, "output texture").bindFlags(Falcor::ResourceBindFlags::UnorderedAccess | Falcor::ResourceBindFlags::ShaderResource);
     return reflector;
 }
 
-void VirtualLightGeneratePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
+void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
     if (mpScene == nullptr)
     {
         return;
     }
 
-    // set virtual light container by global dictionary
-    renderData.getDictionary()[kDicInitialVirtualLights] = mpVirtualLightContainer;
-    // set cur virtual light container for later usage
-    renderData.getDictionary()[kDicCurVirtualLights] = mpVirtualLightContainer;
+    Texture::SharedPtr pPos = renderData[kPosChannel]->asTexture();
+    Texture::SharedPtr pDst = renderData[kOutputChannel]->asTexture();
+    VirtualLightContainer::SharedPtr curVirtualLights = renderData.getDictionary()[kDicCurVirtualLights];
 
-    if (!mNeedUpdate)
+    if (curVirtualLights == nullptr)
     {
+        debugBreak(); // should not be nullptr here
         return;
     }
 
     ShaderVar cb = mpComputePass["CB"];
     cb["gViewportDims"] = uint2(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight());
-    mpVirtualLightContainer->setShaderData(cb["VirtualLightContainer"]);
-    mpComputePass->execute(pRenderContext, uint3(mRaySampleNum, 1, 1));
-    mpVirtualLightContainer->updateCounterToCPU(pRenderContext);
-    mpVirtualLightContainer->buildAS(pRenderContext);
-
-    mNeedUpdate = true;
+    cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
+    cb["gRadius"] = 0.1f;
+    curVirtualLights->setShaderData(cb["VirtualLightContainer"]);
+    mpComputePass->execute(pRenderContext, uint3(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight(), 1));
 }
 
-void VirtualLightGeneratePass::renderUI(Gui::Widgets& widget)
+void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
 {
-    mRaySampleNum = widget.var("Ray Sample Num", mRaySampleNum, 100u, 10000000u);
-    mBoundBoxRadius = widget.var("Bound Box Radius", mBoundBoxRadius, 0.0f, 1.0f);
+    mRadius = widget.var("Vis Radius", mRadius, 0.0f, 1.0f);
 }
 
-void VirtualLightGeneratePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+void VirtualLightVisPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
 {
     mpScene = pScene;
 

@@ -13,6 +13,10 @@ namespace Falcor
         var["positionBuffer"] = mpPositionBuffer;
         var["hitInfoBuffer"] = mpPositionBuffer;
         var["boundingBoxBuffer"] = mpPositionBuffer;
+        if (mHaveAS)
+        {
+            mpAccelerationStructureBuilder->SetRaytracingShaderData(var, "as", 1);
+        }
         var["count"] = mCount;
         var["boundingBoxRadius"] = mBoundingBoxRadius;
     }
@@ -30,9 +34,10 @@ namespace Falcor
         counterReadBuffer->unmap();
     }
 
-    void VirtualLightContainer::buildBVH(RenderContext* renderContext)
+    void VirtualLightContainer::buildAS(RenderContext* renderContext)
     {
-        mpAccelerationStructureBuilder->BuildBVH(renderContext, mCount, 1);
+        mpAccelerationStructureBuilder->BuildAS(renderContext, mCount, 1);
+        mHaveAS = true;
     }
 
     void VirtualLightContainer::setCount(RenderContext* renderContext, uint count)
@@ -47,7 +52,7 @@ namespace Falcor
         mBoundingBoxRadius(boundingBoxRadius)
     {
         mpPositionBuffer = Buffer::createStructured(sizeof(float3), mCapacity);
-        mpHitInfoBuffer = Buffer::createStructured(sizeof(uint3), mCapacity);
+        mpHitInfoBuffer = Buffer::createStructured(sizeof(uint2), mCapacity);
         mpBoundBoxBuffer = Buffer::createStructured(sizeof(float) * 8, mCapacity);
 
         mpAccelerationStructureBuilder = BoundingBoxAccelerationStructureBuilder::Create(mpBoundBoxBuffer);

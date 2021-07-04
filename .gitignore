@@ -20,3 +20,5 @@ Tests/data
 *.tlog
 Source/Samples/BlueNoiseVPL/
 Source/Samples/RichVPL/
+Source/Samples/ReSTIR/
+Source/Samples/BRDFVisualizer/

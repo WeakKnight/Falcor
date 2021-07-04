@@ -30,7 +30,10 @@
 
 namespace
 {
-    const char kDesc[] = "Insert pass description here";    
+    const char kDummy[] = "dummy";
+    const char kDesc[] = "Insert pass description here";
+    const std::string kDicInitialVirtualLights = "initialVirtualLights";
+    const std::string kDicCurVirtualLights = "curVirtualLights";
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -56,6 +59,7 @@ RenderPassTemplate::SharedPtr RenderPassTemplate::create(RenderContext* pRenderC
     for (const auto& [key, value] : dict)
     {
     }
+    pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
     return pPass;
 }
 
@@ -66,15 +70,14 @@ std::string RenderPassTemplate::getDesc()
 
 Dictionary RenderPassTemplate::getScriptingDictionary()
 {
-    return Dictionary();
+    Dictionary d;
+    return d;
 }
 
 RenderPassReflection RenderPassTemplate::reflect(const CompileData& compileData)
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    //reflector.addOutput("dst");
-    //reflector.addInput("src");
     return reflector;
 }
 
@@ -82,8 +85,27 @@ void RenderPassTemplate::execute(RenderContext* pRenderContext, const RenderData
 {
     // renderData holds the requested resources
     // auto& pTexture = renderData["src"]->asTexture();
+    if (mpScene == nullptr)
+    {
+        return;
+    }
 }
 
 void RenderPassTemplate::renderUI(Gui::Widgets& widget)
 {
 }
+
+void RenderPassTemplate::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+{
+    mpScene = pScene;
+
+    if (mpScene)
+    {
+        Shader::DefineList defines = mpScene->getSceneDefines();
+        defines.add(mpSampleGenerator->getDefines());
+        defines.add("_MS_DISABLE_ALPHA_TEST");
+        defines.add("_DEFAULT_ALPHA_TEST");
+    }
+}
+
+

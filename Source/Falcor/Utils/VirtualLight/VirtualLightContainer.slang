@@ -16,6 +16,7 @@ struct VirtualLightContainer
     RWStructuredBuffer<float3> positionBuffer;
     RWStructuredBuffer<PackedHitInfo> hitInfoBuffer;
     RWStructuredBuffer<PackedBoundingBox> boundingBoxBuffer;
+    RaytracingAccelerationStructure as;
     float boundingBoxRadius;
     uint count;
 

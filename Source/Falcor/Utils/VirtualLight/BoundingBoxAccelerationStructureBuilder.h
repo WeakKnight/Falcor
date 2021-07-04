@@ -9,7 +9,7 @@ namespace Falcor
 
         static SharedPtr Create(Buffer::SharedPtr pBoundingBoxBuffer);
 
-        void BuildBVH(RenderContext* pContext, uint32_t boxCount, uint32_t rayTypeCount);
+        void BuildAS(RenderContext* pContext, uint32_t boxCount, uint32_t rayTypeCount);
 
         void SetRaytracingShaderData(const ShaderVar& var, const std::string name, uint32_t rayTypeCount);
 

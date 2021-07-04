@@ -10,7 +10,7 @@ namespace Falcor
         return result;
     }
 
-    void BoundingBoxAccelerationStructureBuilder::BuildBVH(RenderContext* pContext, uint32_t boxCount, uint32_t rayTypeCount)
+    void BoundingBoxAccelerationStructureBuilder::BuildAS(RenderContext* pContext, uint32_t boxCount, uint32_t rayTypeCount)
     {
         mRebuildBlas = true;
         InitGeomDesc(boxCount);

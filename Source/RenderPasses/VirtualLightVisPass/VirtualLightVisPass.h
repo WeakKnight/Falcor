@@ -28,15 +28,14 @@
 #pragma once
 #include "Falcor.h"
 #include "FalcorExperimental.h"
-#include "Utils/VirtualLight/VirtualLightContainer.h"
 #include "Utils/Sampling/SampleGenerator.h"
 
 using namespace Falcor;
 
-class VirtualLightGeneratePass : public RenderPass
+class VirtualLightVisPass : public RenderPass
 {
 public:
-    using SharedPtr = std::shared_ptr<VirtualLightGeneratePass>;
+    using SharedPtr = std::shared_ptr<VirtualLightVisPass>;
 
     /** Create a new render pass object.
         \param[in] pRenderContext The render context.
@@ -56,14 +55,9 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
-    VirtualLightGeneratePass() = default;
-
-    // Internal state
-    uint mRaySampleNum = 100000u;
-    float mBoundBoxRadius = 0.006f;
-    bool mNeedUpdate = true;
+    VirtualLightVisPass() = default;
     Scene::SharedPtr mpScene;
     SampleGenerator::SharedPtr mpSampleGenerator;
-    ComputePass::SharedPtr mpComputePass;
-    VirtualLightContainer::SharedPtr mpVirtualLightContainer;
+    ComputePass::SharedPtr  mpComputePass;
+    float mRadius;
 };
