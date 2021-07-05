@@ -10,9 +10,10 @@ import Utils.Helpers;
 import Utils.Sampling.SampleGenerator;
 import Utils.Math.PackedFormats;
 import Utils.Math.MathHelpers;
+import Scene.RaytracingInlineHelper;
 import Utils.VirtualLight.VirtualLightContainer;
 
-cbuffer PerFrameCB
+cbuffer CB
 {
     uint2 gViewportDims;
     uint gFrameIndex;
@@ -34,7 +35,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
     float4 gPosVal  = gPos[launchIndex.xy];
     float3 posW     = gPosVal.xyz;
     float  opacity  = gPosVal.w;
-
+    gOutput[launchIndex.xy] = float4(0.0f, 1.0f, 0.0f, 1.0f);
     if(opacity > 0.0f)
     {
         RayDesc dummyRay;

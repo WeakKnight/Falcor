@@ -1667,5 +1667,8 @@
     <ShaderSource Include="Utils\VirtualLight\VirtualLightContainer.slang">
       <Filter>Utils\VirtualLight</Filter>
     </ShaderSource>
+    <ShaderSource Include="Scene\RaytracingInlineHelper.slang">
+      <Filter>Scene</Filter>
+    </ShaderSource>
   </ItemGroup>
 </Project>

@@ -122,3 +122,4 @@ bool getCandidateCurveHit<let Flags : int>(RayQuery<Flags> rayQuery, const RayDe
     hit.barycentrics = float2(result.y, 0.f);
     return (isect && hitT >= rayQuery.RayTMin() && hitT < rayQuery.CommittedRayT());
 }
+

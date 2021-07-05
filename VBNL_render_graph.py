@@ -1,7 +1,7 @@
 from falcor import *
 
-def render_graph_VBNL():
-    g = RenderGraph('VBNL')
+def render_graph_DefaultRenderGraph():
+    g = RenderGraph('DefaultRenderGraph')
     loadRenderPassLibrary('SceneDebugger.dll')
     loadRenderPassLibrary('BSDFViewer.dll')
     loadRenderPassLibrary('AccumulatePass.dll')
@@ -24,18 +24,20 @@ def render_graph_VBNL():
     loadRenderPassLibrary('SSAO.dll')
     loadRenderPassLibrary('ToneMapper.dll')
     loadRenderPassLibrary('Utils.dll')
+    loadRenderPassLibrary('VirtualLightGeneratePass.dll')
+    loadRenderPassLibrary('VirtualLightVisPass.dll')
     loadRenderPassLibrary('WhittedRayTracer.dll')
-    AccumulatePass = createPass('AccumulatePass', {'enableAccumulation': True, 'autoReset': True, 'precisionMode': AccumulatePrecision.Single, 'subFrameCount': 0})
-    g.addPass(AccumulatePass, 'AccumulatePass')
-    ToneMapper = createPass('ToneMapper', {'exposureCompensation': 0.0, 'autoExposure': False, 'filmSpeed': 100.0, 'whiteBalance': False, 'whitePoint': 6500.0, 'operator': ToneMapOp.Aces, 'clamp': True, 'whiteMaxLuminance': 1.0, 'whiteScale': 11.199999809265137, 'fNumber': 1.0, 'shutter': 1.0, 'exposureMode': ExposureMode.AperturePriority})
-    g.addPass(ToneMapper, 'ToneMapper')
+    VirtualLightGeneratePass = createPass('VirtualLightGeneratePass', {'raySampleNum': 100000, 'boundBoxRadius': 0.006000000052154064})
+    g.addPass(VirtualLightGeneratePass, 'VirtualLightGeneratePass')
+    VirtualLightVisPass = createPass('VirtualLightVisPass', {'radius': 4.610224303480861e-39})
+    g.addPass(VirtualLightVisPass, 'VirtualLightVisPass')
     GBufferRT = createPass('GBufferRT', {'samplePattern': SamplePattern.Center, 'sampleCount': 16, 'disableAlphaTest': False, 'adjustShadingNormals': True, 'forceCullMode': False, 'cull': CullMode.CullBack, 'texLOD': LODMode.UseMip0})
     g.addPass(GBufferRT, 'GBufferRT')
-    g.addEdge('AccumulatePass.output', 'ToneMapper.src')
-    g.addEdge('GBufferRT.diffuseOpacity', 'AccumulatePass.input')
-    g.markOutput('ToneMapper.dst')
+    g.addEdge('GBufferRT.posW', 'VirtualLightVisPass.pos')
+    g.addEdge('VirtualLightGeneratePass.dummy', 'VirtualLightVisPass.dummy')
+    g.markOutput('VirtualLightVisPass.output')
     return g
 
-VBNL = render_graph_VBNL()
-try: m.addGraph(VBNL)
+DefaultRenderGraph = render_graph_DefaultRenderGraph()
+try: m.addGraph(DefaultRenderGraph)
 except NameError: None

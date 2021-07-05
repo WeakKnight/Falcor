@@ -20,9 +20,9 @@ struct VirtualLightContainer
     float boundingBoxRadius;
     uint count;
 
-    void pushLight(float3 posW, HitInfo hitInfo)
+    uint pushLight(float3 posW, HitInfo hitInfo)
     {
-        uint ind = _positions.IncrementCounter();
+        uint ind = positionBuffer.IncrementCounter();
 
         positionBuffer[ind] = posW;
         hitInfoBuffer[ind] = hitInfo.encode();
@@ -30,5 +30,7 @@ struct VirtualLightContainer
         float3 radius = float3(boundingBoxRadius);
         boundingBoxBuffer[ind].minPoint = posW - radius;
         boundingBoxBuffer[ind].maxPoint = posW + radius;
+
+        return ind;
     }
 }

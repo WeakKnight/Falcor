@@ -58,13 +58,14 @@ VirtualLightGeneratePass::SharedPtr VirtualLightGeneratePass::create(RenderConte
         if (key == kRaySampleNum)
         {
             pPass->mRaySampleNum = value;
+            logInfo("Set Ray Sample Num: " + std::to_string(pPass->mRaySampleNum));
         }
         else if (key == kBoundBoxRadius)
         {
             pPass->mBoundBoxRadius = value;
         }
     }
-    pPass->mpVirtualLightContainer = VirtualLightContainer::create(pPass->mRaySampleNum, pPass->mBoundBoxRadius);
+
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
 
     Program::Desc desc;
@@ -90,7 +91,7 @@ RenderPassReflection VirtualLightGeneratePass::reflect(const CompileData& compil
 {
     // Define the required resources here
     RenderPassReflection reflector;
-    reflector.addInput("aldebo", "aldedo texture from GBuffer");
+    //reflector.addInput("aldebo", "aldedo texture from GBuffer");
     reflector.addOutput(kDummy, "useless dummy Output");
     return reflector;
 }
@@ -100,6 +101,11 @@ void VirtualLightGeneratePass::execute(RenderContext* pRenderContext, const Rend
     if (mpScene == nullptr)
     {
         return;
+    }
+
+    if (mpVirtualLightContainer == nullptr)
+    {
+        mpVirtualLightContainer = VirtualLightContainer::create(mRaySampleNum, mBoundBoxRadius);
     }
 
     // set virtual light container by global dictionary
@@ -114,18 +120,22 @@ void VirtualLightGeneratePass::execute(RenderContext* pRenderContext, const Rend
 
     ShaderVar cb = mpComputePass["CB"];
     cb["gViewportDims"] = uint2(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight());
-    mpVirtualLightContainer->setShaderData(cb["VirtualLightContainer"]);
+    cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
+    cb["gRaySampleNum"] = mRaySampleNum;
+
+    mpVirtualLightContainer->setShaderData(cb["gVirtualLightContainer"]);
     mpComputePass->execute(pRenderContext, uint3(mRaySampleNum, 1, 1));
     mpVirtualLightContainer->updateCounterToCPU(pRenderContext);
     mpVirtualLightContainer->buildAS(pRenderContext);
 
-    mNeedUpdate = true;
+    logInfo("actual initial virtual light count: " + std::to_string(mpVirtualLightContainer->getCount()));
+    mNeedUpdate = false;
 }
 
 void VirtualLightGeneratePass::renderUI(Gui::Widgets& widget)
 {
-    mRaySampleNum = widget.var("Ray Sample Num", mRaySampleNum, 100u, 10000000u);
-    mBoundBoxRadius = widget.var("Bound Box Radius", mBoundBoxRadius, 0.0f, 1.0f);
+    widget.var("Ray Sample Num", mRaySampleNum, 100u, 10000000u);
+    widget.var("Bound Box Radius", mBoundBoxRadius, 0.0f, 1.0f);
 }
 
 void VirtualLightGeneratePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)

@@ -59,5 +59,5 @@ private:
     Scene::SharedPtr mpScene;
     SampleGenerator::SharedPtr mpSampleGenerator;
     ComputePass::SharedPtr  mpComputePass;
-    float mRadius;
+    float mRadius = 0.004;
 };

@@ -47,15 +47,9 @@ extern "C" __declspec(dllexport) const char* getProjDir()
     return PROJECT_DIR;
 }
 
-static void regPythonApi(pybind11::module& m)
-{
-    pybind11::class_<VirtualLightVisPass, RenderPass, VirtualLightVisPass::SharedPtr> pass(m, "VirtualLightVisPass");
-}
-
 extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
 {
     lib.registerClass("VirtualLightVisPass", kDesc, VirtualLightVisPass::create);
-    ScriptBindings::registerBinding(regPythonApi);
 }
 
 VirtualLightVisPass::SharedPtr VirtualLightVisPass::create(RenderContext* pRenderContext, const Dictionary& dict)
@@ -95,7 +89,7 @@ RenderPassReflection VirtualLightVisPass::reflect(const CompileData& compileData
     RenderPassReflection reflector;
     reflector.addInput(kDummy, "");
     reflector.addInput(kPosChannel, "pos texture").bindFlags(Falcor::ResourceBindFlags::UnorderedAccess | Falcor::ResourceBindFlags::ShaderResource);
-    reflector.addOutput(kOutputChannel, "output texture").bindFlags(Falcor::ResourceBindFlags::UnorderedAccess | Falcor::ResourceBindFlags::ShaderResource);
+    reflector.addOutput(kOutputChannel, "output texture").bindFlags(ResourceBindFlags::RenderTarget | ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource).format(ResourceFormat::RGBA32Float);
     return reflector;
 }
 
@@ -120,13 +114,16 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
     cb["gViewportDims"] = uint2(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight());
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRadius"] = 0.1f;
-    curVirtualLights->setShaderData(cb["VirtualLightContainer"]);
+    curVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
+    mpComputePass["gPos"] = pPos;
+    mpComputePass["gOutput"] = pDst;
+
     mpComputePass->execute(pRenderContext, uint3(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight(), 1));
 }
 
 void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
 {
-    mRadius = widget.var("Vis Radius", mRadius, 0.0f, 1.0f);
+    widget.var("Vis Radius", mRadius, 0.0f, 1.0f);
 }
 
 void VirtualLightVisPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)

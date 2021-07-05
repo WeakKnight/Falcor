@@ -11,8 +11,8 @@ namespace Falcor
     void VirtualLightContainer::setShaderData(const ShaderVar& var) const
     {
         var["positionBuffer"] = mpPositionBuffer;
-        var["hitInfoBuffer"] = mpPositionBuffer;
-        var["boundingBoxBuffer"] = mpPositionBuffer;
+        var["hitInfoBuffer"] = mpHitInfoBuffer;
+        var["boundingBoxBuffer"] = mpBoundBoxBuffer;
         if (mHaveAS)
         {
             mpAccelerationStructureBuilder->SetRaytracingShaderData(var, "as", 1);

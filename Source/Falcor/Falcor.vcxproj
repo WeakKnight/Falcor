@@ -231,6 +231,7 @@
     <ShaderSource Include="Scene\Raster.slang" />
     <ShaderSource Include="Scene\Raytracing.slang" />
     <ShaderSource Include="Scene\RaytracingInline.slang" />
+    <ShaderSource Include="Scene\RaytracingInlineHelper.slang" />
     <ShaderSource Include="Scene\Scene.slang" />
     <ShaderSource Include="Scene\SceneTypes.slang" />
     <ShaderSource Include="Scene\Shading.slang" />
