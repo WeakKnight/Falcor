@@ -21,6 +21,11 @@ namespace Falcor
         var["boundingBoxRadius"] = mBoundingBoxRadius;
     }
 
+    void VirtualLightContainer::setRayTracingData(const ShaderVar& var, const std::string name) const
+    {
+        mpAccelerationStructureBuilder->SetRaytracingShaderData(var, name, 1);
+    }
+
     void VirtualLightContainer::updateCounterToCPU(RenderContext* renderContext)
     {
         Buffer::SharedPtr counterReadBuffer = Buffer::create(sizeof(uint), ResourceBindFlags::None, Buffer::CpuAccess::Read);

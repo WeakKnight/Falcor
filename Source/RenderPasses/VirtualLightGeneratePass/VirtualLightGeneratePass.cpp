@@ -119,11 +119,12 @@ void VirtualLightGeneratePass::execute(RenderContext* pRenderContext, const Rend
     }
 
     ShaderVar cb = mpComputePass["CB"];
-    cb["gViewportDims"] = uint2(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight());
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRaySampleNum"] = mRaySampleNum;
-
     mpVirtualLightContainer->setShaderData(cb["gVirtualLightContainer"]);
+
+    mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
+
     mpComputePass->execute(pRenderContext, uint3(mRaySampleNum, 1, 1));
     mpVirtualLightContainer->updateCounterToCPU(pRenderContext);
     mpVirtualLightContainer->buildAS(pRenderContext);

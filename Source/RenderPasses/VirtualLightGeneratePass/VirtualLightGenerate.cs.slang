@@ -16,7 +16,6 @@ import Scene.RaytracingInlineHelper;
 
 cbuffer CB
 {
-    uint2 gViewportDims;
     uint gFrameIndex;
     uint gRaySampleNum;
     VirtualLightContainer gVirtualLightContainer;

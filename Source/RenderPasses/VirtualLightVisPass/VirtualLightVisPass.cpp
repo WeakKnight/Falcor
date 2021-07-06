@@ -111,14 +111,13 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
     }
 
     ShaderVar cb = mpComputePass["CB"];
-    cb["gViewportDims"] = uint2(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight());
+    cb["gViewportDims"] = uint2(pDst->getWidth(), pDst->getHeight());
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRadius"] = 0.1f;
     curVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
     mpComputePass["gPos"] = pPos;
     mpComputePass["gOutput"] = pDst;
-
-    mpComputePass->execute(pRenderContext, uint3(mpScene->getCamera()->getFrameWidth(), mpScene->getCamera()->getFrameHeight(), 1));
+    mpComputePass->execute(pRenderContext, uint3(pDst->getWidth(), pDst->getHeight(), 1));
 }
 
 void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
