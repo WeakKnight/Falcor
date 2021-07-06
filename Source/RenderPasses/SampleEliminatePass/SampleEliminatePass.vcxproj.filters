@@ -5,5 +5,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SampleEliminatePass.h" />
+    <ClInclude Include="cyCore.h" />
+    <ClInclude Include="cyHeap.h" />
+    <ClInclude Include="cyPointCloud.h" />
   </ItemGroup>
 </Project>

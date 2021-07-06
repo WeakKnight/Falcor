@@ -29,6 +29,7 @@
 #include "Falcor.h"
 #include "FalcorExperimental.h"
 #include "Utils/Sampling/SampleGenerator.h"
+#include "Utils/VirtualLight/VirtualLightContainer.h"
 
 using namespace Falcor;
 
@@ -55,7 +56,13 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
+    void eliminatie(VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount);
+
+private:
     SampleEliminatePass() = default;
+    float mRatio = 0.2f;
     Scene::SharedPtr mpScene;
     SampleGenerator::SharedPtr mpSampleGenerator;
+    ComputePass::SharedPtr mpComputePass;
+    VirtualLightContainer::SharedPtr mpSampleEliminatedVirtualLightContainer;
 };

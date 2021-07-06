@@ -26,12 +26,16 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 #include "SampleEliminatePass.h"
-
+#include "cyCore.h"
+#include "cyHeap.h"
+#include "cyPointCloud.h"
 
 namespace
 {
     const char kDummy[] = "dummy";
     const char kDesc[] = "Insert pass description here";
+    const char kRatio[] = "ratio";
+
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
 }
@@ -58,6 +62,10 @@ SampleEliminatePass::SharedPtr SampleEliminatePass::create(RenderContext* pRende
     SharedPtr pPass = SharedPtr(new SampleEliminatePass);
     for (const auto& [key, value] : dict)
     {
+        if (key == kRatio)
+        {
+            pPass->mRatio = value;
+        }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
     return pPass;
@@ -71,12 +79,15 @@ std::string SampleEliminatePass::getDesc()
 Dictionary SampleEliminatePass::getScriptingDictionary()
 {
     Dictionary d;
+    d[kRatio] = mRatio;
     return d;
 }
 
 RenderPassReflection SampleEliminatePass::reflect(const CompileData& compileData)
 {
     RenderPassReflection reflector;
+    reflector.addInput(kDummy, "");
+    reflector.addOutput(kDummy, "");
     return reflector;
 }
 
@@ -86,10 +97,26 @@ void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderDat
     {
         return;
     }
+
+    VirtualLightContainer::SharedPtr initialVirtualLights = renderData.getDictionary()[kDicInitialVirtualLights];
+    if (initialVirtualLights == nullptr)
+    {
+        debugBreak(); // should not be nullptr here
+        return;
+    }
+
+    if (mpSampleEliminatedVirtualLightContainer == nullptr)
+    {
+        uint targetCount = (float)initialVirtualLights->getCount() * mRatio;
+        mpSampleEliminatedVirtualLightContainer = VirtualLightContainer::create(targetCount, initialVirtualLights->getBoundingBoxRadius());
+        eliminatie(initialVirtualLights, targetCount);
+    }
+    renderData.getDictionary()[kDicCurVirtualLights] = mpSampleEliminatedVirtualLightContainer;
 }
 
 void SampleEliminatePass::renderUI(Gui::Widgets& widget)
 {
+    widget.var("Ratio", mRatio, 0.02f, 1.0f);
 }
 
 void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
@@ -103,6 +130,10 @@ void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::S
         defines.add("_MS_DISABLE_ALPHA_TEST");
         defines.add("_DEFAULT_ALPHA_TEST");
     }
+}
+
+void SampleEliminatePass::eliminatie(VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount)
+{
 }
 
 

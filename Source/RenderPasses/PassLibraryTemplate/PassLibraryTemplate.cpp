@@ -34,6 +34,7 @@ namespace
     const char kDesc[] = "Insert pass description here";
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
+    const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
 }
 
 // Don't remove this. it's required for hot-reload to function properly
