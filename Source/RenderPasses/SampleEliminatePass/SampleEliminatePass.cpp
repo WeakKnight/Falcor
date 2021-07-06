@@ -76,15 +76,12 @@ Dictionary SampleEliminatePass::getScriptingDictionary()
 
 RenderPassReflection SampleEliminatePass::reflect(const CompileData& compileData)
 {
-    // Define the required resources here
     RenderPassReflection reflector;
     return reflector;
 }
 
 void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    // renderData holds the requested resources
-    // auto& pTexture = renderData["src"]->asTexture();
     if (mpScene == nullptr)
     {
         return;
