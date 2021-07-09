@@ -92,6 +92,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VirtualLightVisPass", "Sour
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SampleEliminatePass", "Source\RenderPasses\SampleEliminatePass\SampleEliminatePass.vcxproj", "{CE4E6D23-E12C-49F6-8492-BCAD884B6E40}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VirtualLightEstimatePass", "Source\RenderPasses\VirtualLightEstimatePass\VirtualLightEstimatePass.vcxproj", "{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -380,6 +382,14 @@ Global
 		{CE4E6D23-E12C-49F6-8492-BCAD884B6E40}.Release|x64.Build.0 = Release|x64
 		{CE4E6D23-E12C-49F6-8492-BCAD884B6E40}.ReleaseD3D12|x64.ActiveCfg = Release|x64
 		{CE4E6D23-E12C-49F6-8492-BCAD884B6E40}.ReleaseD3D12|x64.Build.0 = Release|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.Debug|x64.ActiveCfg = Debug|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.Debug|x64.Build.0 = Debug|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.DebugD3D12|x64.ActiveCfg = Debug|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.DebugD3D12|x64.Build.0 = Debug|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.Release|x64.ActiveCfg = Release|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.Release|x64.Build.0 = Release|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.ReleaseD3D12|x64.ActiveCfg = Release|x64
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6}.ReleaseD3D12|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -419,6 +429,7 @@ Global
 		{8F5021A0-B44D-487E-A5B9-B14E5B34EE88} = {D16038A7-B031-4181-B4A1-2C416C02330C}
 		{9BA8BE6A-3CE0-4307-885A-BE18FD90F3DA} = {D16038A7-B031-4181-B4A1-2C416C02330C}
 		{CE4E6D23-E12C-49F6-8492-BCAD884B6E40} = {D16038A7-B031-4181-B4A1-2C416C02330C}
+		{66B092D9-4CBB-4AFC-8647-D2CAE69149E6} = {D16038A7-B031-4181-B4A1-2C416C02330C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {357B2AE0-FE30-4AC6-8D41-B580232BC0DE}
