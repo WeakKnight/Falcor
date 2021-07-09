@@ -9,4 +9,7 @@
     <ClInclude Include="cyHeap.h" />
     <ClInclude Include="cyPointCloud.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ShaderSource Include="SampleEliminate.cs.slang" />
+  </ItemGroup>
 </Project>

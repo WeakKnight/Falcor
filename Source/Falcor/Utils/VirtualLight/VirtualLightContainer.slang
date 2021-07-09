@@ -33,4 +33,14 @@ struct VirtualLightContainer
 
         return ind;
     }
+
+    float3 getPosition(uint i)
+    {
+        return positionBuffer[i];
+    }
+
+    PackedHitInfo getHitInfo(uint i)
+    {
+        return hitInfoBuffer[i];
+    }
 }

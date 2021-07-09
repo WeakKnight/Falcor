@@ -16,6 +16,7 @@ namespace Falcor
         void setCount(RenderContext* renderContext, uint count);
         uint32_t getCount() const { return mCount; }
         float getBoundingBoxRadius() const { return mBoundingBoxRadius; }
+        Buffer::SharedPtr getPositionBuffer() const { return  mpPositionBuffer; }
 
     private:
         VirtualLightContainer(uint32_t capacity, float boundingBoxRadius);

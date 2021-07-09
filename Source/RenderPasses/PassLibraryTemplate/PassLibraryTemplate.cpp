@@ -31,10 +31,12 @@
 namespace
 {
     const char kDummy[] = "dummy";
+    const char kDummyInput[] = "input";
+    const char kDummyOutput[] = "output";
     const char kDesc[] = "Insert pass description here";
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
-    const std::string kDicCurVirtualLights = "curVirtualLights";
     const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
+    const std::string kDicCurVirtualLights = "curVirtualLights";
 }
 
 // Don't remove this. it's required for hot-reload to function properly

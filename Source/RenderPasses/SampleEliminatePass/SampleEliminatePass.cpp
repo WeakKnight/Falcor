@@ -29,14 +29,21 @@
 #include "cyCore.h"
 #include "cyHeap.h"
 #include "cyPointCloud.h"
+#include <tbb/parallel_for.h>
 
 namespace
 {
     const char kDummy[] = "dummy";
+    const char kDummyInput[] = "input";
+    const char kDummyOutput[] = "output";
     const char kDesc[] = "Insert pass description here";
     const char kRatio[] = "ratio";
-
+    const char kRadiusSearchRange[] = "radiusSearchRange";
+    const char kRadiusSearchCount[] = "radiusSearchCount";
+    const char kRadius[] = "radius";
+    
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
+    const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
 }
 
@@ -66,8 +73,23 @@ SampleEliminatePass::SharedPtr SampleEliminatePass::create(RenderContext* pRende
         {
             pPass->mRatio = value;
         }
+        else if (key == kRadiusSearchRange)
+        {
+            pPass->mRadiusSearchRange = value;
+        }
+        else if (key == kRadiusSearchCount)
+        {
+            pPass->mRadiusSearchCount = value;
+        }
+        else if (key == kRadius)
+        {
+            pPass->mRadius = value;
+        }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
+    Program::Desc desc;
+    desc.addShaderLibrary("RenderPasses/SampleEliminatePass/SampleEliminate.cs.slang").csEntry("main").setShaderModel("6_5");
+    pPass->mpComputePass = ComputePass::create(desc, Program::DefineList(), false);
     return pPass;
 }
 
@@ -80,14 +102,17 @@ Dictionary SampleEliminatePass::getScriptingDictionary()
 {
     Dictionary d;
     d[kRatio] = mRatio;
+    d[kRadiusSearchRange] = mRadiusSearchRange;
+    d[kRadiusSearchCount] = mRadiusSearchCount;
+    d[kRadius] = mRadius;
     return d;
 }
 
 RenderPassReflection SampleEliminatePass::reflect(const CompileData& compileData)
 {
     RenderPassReflection reflector;
-    reflector.addInput(kDummy, "");
-    reflector.addOutput(kDummy, "");
+    reflector.addInput(kDummyInput, "useless dummy input");
+    reflector.addOutput(kDummyOutput, "useless dummy output");
     return reflector;
 }
 
@@ -105,18 +130,40 @@ void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderDat
         return;
     }
 
-    if (mpSampleEliminatedVirtualLightContainer == nullptr)
+    if (mpSampleEliminatedVirtualLights == nullptr)
     {
         uint targetCount = (float)initialVirtualLights->getCount() * mRatio;
-        mpSampleEliminatedVirtualLightContainer = VirtualLightContainer::create(targetCount, initialVirtualLights->getBoundingBoxRadius());
-        eliminatie(initialVirtualLights, targetCount);
+        mpSampleEliminatedVirtualLights = VirtualLightContainer::create(targetCount, initialVirtualLights->getBoundingBoxRadius());
+
+        std::vector<uint32_t> outputIndices;
+        outputIndices.resize(targetCount);
+        std::vector<float3> outputPositions;
+        outputPositions.resize(targetCount);
+        eliminatie(pRenderContext, initialVirtualLights, targetCount, outputIndices, outputPositions);
+
+        mpSampleEliminatedVirtualLights->getPositionBuffer()->setBlob(outputPositions.data(), 0, outputPositions.size() * sizeof(float3));
+        mpSampleEliminatedVirtualLights->setCount(pRenderContext, targetCount);
+        pRenderContext->flush(true);
+        ShaderVar cb = mpComputePass["CB"];
+        initialVirtualLights->setShaderData(cb["gInitialVirtualLights"]);
+        mpSampleEliminatedVirtualLights->setShaderData(cb["gSampleEliminatedVirtualLights"]);
+        Buffer::SharedPtr indicesBuffer = Buffer::createStructured(sizeof(uint), targetCount, ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, outputIndices.data());
+        mpComputePass["gIndices"] = indicesBuffer;
+        mpComputePass->execute(pRenderContext, uint3(targetCount, 1, 1));
+        pRenderContext->flush(true);
+        mpSampleEliminatedVirtualLights->buildAS(pRenderContext);
     }
-    renderData.getDictionary()[kDicCurVirtualLights] = mpSampleEliminatedVirtualLightContainer;
+
+    renderData.getDictionary()[kDicCurVirtualLights] = mpSampleEliminatedVirtualLights;
+    renderData.getDictionary()[kDicSampleEliminatedVirtualLights] = mpSampleEliminatedVirtualLights;
 }
 
 void SampleEliminatePass::renderUI(Gui::Widgets& widget)
 {
     widget.var("Ratio", mRatio, 0.02f, 1.0f);
+    widget.var("RadiusSearchRange", mRadiusSearchRange, 0.0f, 1.0f);
+    widget.var("RadiusSearchCount", mRadiusSearchCount, 0u, 1000u);
+    widget.var("Radius", mRadius, 0.0f, 1.0f);
 }
 
 void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
@@ -129,11 +176,110 @@ void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::S
         defines.add(mpSampleGenerator->getDefines());
         defines.add("_MS_DISABLE_ALPHA_TEST");
         defines.add("_DEFAULT_ALPHA_TEST");
+
+        mpComputePass->getProgram()->addDefines(defines);
+        mpComputePass->setVars(nullptr); // Trigger recompile
     }
 }
 
-void SampleEliminatePass::eliminatie(VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount)
+void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions)
 {
+    uint inputCount = initialVirtualLights->getCount();
+    Buffer::SharedPtr positionReadBuffer = Buffer::create(initialVirtualLights->getPositionBuffer()->getSize(), Resource::BindFlags::None, Buffer::CpuAccess::Read);
+    pRenderContext->copyBufferRegion(positionReadBuffer.get(), 0, initialVirtualLights->getPositionBuffer().get(), 0, initialVirtualLights->getPositionBuffer()->getSize());
+    pRenderContext->flush(true);
+    float3* inputPositions = (float3*)positionReadBuffer->map(Buffer::MapType::Read);
+    {
+        cy::PointCloud<float3, float, 3, uint> kdtree;
+        kdtree.Build(inputCount, inputPositions);
+
+        float ratio = float(inputCount) / float(targetCount);
+
+        auto getPoissonDiskRadius = [&](float3 pos)
+        {
+            uint actualCount;
+            float actualSquaredRadius;
+            kdtree.PointsSearchExtRadiusFirst(pos, mRadiusSearchCount, mRadiusSearchRange, actualCount, actualSquaredRadius);
+            float sampleDomainArea = ratio * cy::Pi<float>() * actualSquaredRadius / (float)actualCount;
+            float result = sqrt(sampleDomainArea / (2.0 * sqrt(3.0)));
+            result = std::min(mRadius, result);
+            return result;
+        };
+
+        std::vector<float> dMaxList(inputCount);
+        std::vector<float> reverseDMaxList(inputCount);
+        tbb::parallel_for(0u, inputCount, 1u, [&](uint i)
+        {
+            dMaxList[i] = 2.0f * getPoissonDiskRadius(inputPositions[i]);
+            reverseDMaxList[i] = dMaxList[i];
+        });
+
+        auto weightFunction = [&](float d2, float dMax)
+        {
+            float d = sqrt(d2);
+            const float alpha = 8.0f;
+            return std::pow(1.0 - d / dMax, alpha);
+        };
+
+        std::vector<float> weights(inputCount, 0.0f);
+        for (uint index = 0; index < inputCount; index++)
+        {
+            float3 point = inputPositions[index];
+            float dMax = dMaxList[index];
+            kdtree.GetPoints(point, dMaxList[index], [&](uint i, float3 const& p, float d2, float&)
+            {
+                if (i >= inputCount)
+                {
+                    return;
+                }
+                if (i != index)
+                {
+                    float weight = weightFunction(d2, dMax);
+                    weights[index] += weight;
+                    if (reverseDMaxList[i] < dMax)
+                    {
+                        reverseDMaxList[i] = dMax;
+                    }
+                }
+            });
+        }
+
+        cy::Heap<float, uint> maxHeap;
+        maxHeap.SetDataPointer(weights.data(), inputCount);
+        maxHeap.Build();
+
+        uint remainCount = inputCount;
+        while (remainCount > targetCount)
+        {
+            uint index = maxHeap.GetTopItemID();
+            maxHeap.Pop();
+            float3 point = inputPositions[index];
+            kdtree.GetPoints(point, reverseDMaxList[index], [&](uint i, float3 const& p, float d2, float&)
+            {
+                if (i > inputCount)
+                {
+                    return;
+                }
+                if (i != index)
+                {
+                    float dMax = dMaxList[i];
+                    if (dMax * dMax > d2)
+                    {
+                        float weight = weightFunction(d2, dMax);
+                        weights[i] -= weight;
+                        maxHeap.MoveItemDown(i);
+                    }
+                }
+            });
+            remainCount--;
+        }
+        for (uint i = 0; i < targetCount; i++)
+        {
+            outputIndices[i] = maxHeap.GetIDFromHeap(i);
+            outputPositions[i] = inputPositions[outputIndices[i]];
+        }
+    }
+    positionReadBuffer->unmap();
 }
 
 

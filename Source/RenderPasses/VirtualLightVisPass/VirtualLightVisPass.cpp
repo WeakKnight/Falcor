@@ -33,11 +33,13 @@ namespace
     const char kDummy[] = "dummy";
     const char kDesc[] = "Insert pass description here";
     const char kRadius[] = "radius";
+    const char kVisMode[] = "visMode";
     
     const char kPosChannel[] = "pos";
     const char kOutputChannel[] = "output";
 
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
+    const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
 }
 
@@ -61,6 +63,10 @@ VirtualLightVisPass::SharedPtr VirtualLightVisPass::create(RenderContext* pRende
         {
             pPass->mRadius = value;
         }
+        else if (key == kVisMode)
+        {
+            pPass->mVisMode = value;
+        }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
 
@@ -80,6 +86,7 @@ Dictionary VirtualLightVisPass::getScriptingDictionary()
 {
     Dictionary d;
     d[kRadius] = mRadius;
+    d[kVisMode] = mVisMode;
     return d;
 }
 
@@ -102,9 +109,26 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
 
     Texture::SharedPtr pPos = renderData[kPosChannel]->asTexture();
     Texture::SharedPtr pDst = renderData[kOutputChannel]->asTexture();
+    
+    VirtualLightContainer::SharedPtr initialVirtualLights = renderData.getDictionary()[kDicInitialVirtualLights];
+    VirtualLightContainer::SharedPtr sampleEliminatedVirtualLights = renderData.getDictionary()[kDicSampleEliminatedVirtualLights];
     VirtualLightContainer::SharedPtr curVirtualLights = renderData.getDictionary()[kDicCurVirtualLights];
 
-    if (curVirtualLights == nullptr)
+    VirtualLightContainer::SharedPtr seletedVirtualLights;
+    switch (mVisMode)
+    {
+    case 0:
+        seletedVirtualLights = curVirtualLights;
+        break;
+    case 1:
+        seletedVirtualLights = initialVirtualLights;
+        break;
+    case 2:
+        seletedVirtualLights = sampleEliminatedVirtualLights;
+        break;
+    }
+
+    if (seletedVirtualLights == nullptr)
     {
         debugBreak(); // should not be nullptr here
         return;
@@ -114,7 +138,7 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
     cb["gViewportDims"] = uint2(pDst->getWidth(), pDst->getHeight());
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRadius"] = mRadius;
-    curVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
+    seletedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
     mpComputePass["gPos"] = pPos;
     mpComputePass["gOutput"] = pDst;
     mpComputePass->execute(pRenderContext, uint3(pDst->getWidth(), pDst->getHeight(), 1));
@@ -123,6 +147,11 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
 void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
 {
     widget.var("Vis Radius", mRadius, 0.0f, 1.0f);
+    Gui::DropdownList visModes;
+    visModes.push_back({ 0, "Current Samples" });
+    visModes.push_back({ 1, "Initial Samples" });
+    visModes.push_back({ 2, "Sample Eliminated Samples" });
+    widget.dropdown("Vis Mode", visModes, mVisMode);
 }
 
 void VirtualLightVisPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)

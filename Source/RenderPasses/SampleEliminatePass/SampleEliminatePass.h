@@ -38,11 +38,6 @@ class SampleEliminatePass : public RenderPass
 public:
     using SharedPtr = std::shared_ptr<SampleEliminatePass>;
 
-    /** Create a new render pass object.
-        \param[in] pRenderContext The render context.
-        \param[in] dict Dictionary of serialized parameters.
-        \return A new object, or an exception is thrown if creation failed.
-    */
     static SharedPtr create(RenderContext* pRenderContext = nullptr, const Dictionary& dict = {});
 
     virtual std::string getDesc() override;
@@ -56,13 +51,16 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
-    void eliminatie(VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount);
+    void eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions);
 
 private:
     SampleEliminatePass() = default;
-    float mRatio = 0.2f;
-    Scene::SharedPtr mpScene;
-    SampleGenerator::SharedPtr mpSampleGenerator;
-    ComputePass::SharedPtr mpComputePass;
-    VirtualLightContainer::SharedPtr mpSampleEliminatedVirtualLightContainer;
+    float   mRatio = 0.2f;
+    float   mRadiusSearchRange = 0.37f;
+    uint    mRadiusSearchCount = 350;
+    float   mRadius = 0.05f;
+    Scene::SharedPtr                    mpScene;
+    SampleGenerator::SharedPtr          mpSampleGenerator;
+    ComputePass::SharedPtr              mpComputePass;
+    VirtualLightContainer::SharedPtr    mpSampleEliminatedVirtualLights;
 };
