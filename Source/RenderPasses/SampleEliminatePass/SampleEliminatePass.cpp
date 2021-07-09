@@ -36,7 +36,7 @@ namespace
     const char kDummy[] = "dummy";
     const char kDummyInput[] = "input";
     const char kDummyOutput[] = "output";
-    const char kDesc[] = "Insert pass description here";
+    const char kDesc[] = "get a blue-noise-distributed set of samples";
     const char kRatio[] = "ratio";
     const char kRadiusSearchRange[] = "radiusSearchRange";
     const char kRadiusSearchCount[] = "radiusSearchCount";
