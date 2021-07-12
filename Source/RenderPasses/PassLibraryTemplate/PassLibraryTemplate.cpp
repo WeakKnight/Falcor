@@ -108,6 +108,9 @@ void RenderPassTemplate::setScene(RenderContext* pRenderContext, const Scene::Sh
         defines.add(mpSampleGenerator->getDefines());
         defines.add("_MS_DISABLE_ALPHA_TEST");
         defines.add("_DEFAULT_ALPHA_TEST");
+
+        //mpComputePass->getProgram()->addDefines(defines);
+        //mpComputePass->setVars(nullptr); // Trigger recompile
     }
 }
 

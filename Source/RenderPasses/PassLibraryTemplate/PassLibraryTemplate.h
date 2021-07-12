@@ -57,5 +57,6 @@ public:
 private:
     RenderPassTemplate() = default;
     Scene::SharedPtr mpScene;
+    //ComputePass::SharedPtr  mpComputePass;
     SampleGenerator::SharedPtr mpSampleGenerator;
 };

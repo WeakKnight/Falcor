@@ -63,6 +63,9 @@ VirtualLightEstimatePass::SharedPtr VirtualLightEstimatePass::create(RenderConte
     {
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
+    Program::Desc desc;
+    desc.addShaderLibrary("RenderPasses/VirtualLightEstimatePass/VirtualLightEstimate.cs.slang").csEntry("main").setShaderModel("6_5");
+    pPass->mpComputePass = ComputePass::create(desc, Program::DefineList(), false);
     return pPass;
 }
 
@@ -108,6 +111,9 @@ void VirtualLightEstimatePass::setScene(RenderContext* pRenderContext, const Sce
         defines.add(mpSampleGenerator->getDefines());
         defines.add("_MS_DISABLE_ALPHA_TEST");
         defines.add("_DEFAULT_ALPHA_TEST");
+
+        mpComputePass->getProgram()->addDefines(defines);
+        mpComputePass->setVars(nullptr); // Trigger recompile
     }
 }
 

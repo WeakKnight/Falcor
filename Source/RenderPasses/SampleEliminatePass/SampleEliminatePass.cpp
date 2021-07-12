@@ -41,6 +41,8 @@ namespace
     const char kRadiusSearchRange[] = "radiusSearchRange";
     const char kRadiusSearchCount[] = "radiusSearchCount";
     const char kRadius[] = "radius";
+    const char kRadiusScalerForASBuilding[] = "radiusScalerForASBuilding";
+    const char kUseDMaxForASBuilding[] = "useDMaxForASBuilding";
     
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
     const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
@@ -85,6 +87,14 @@ SampleEliminatePass::SharedPtr SampleEliminatePass::create(RenderContext* pRende
         {
             pPass->mRadius = value;
         }
+        else if (key == kRadiusScalerForASBuilding)
+        {
+            pPass->mRadiusScalerForASBuilding = value;
+        }
+        else if (key == kUseDMaxForASBuilding)
+        {
+            pPass->mUseDMaxForASBuilding = value;
+        }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
     Program::Desc desc;
@@ -105,6 +115,8 @@ Dictionary SampleEliminatePass::getScriptingDictionary()
     d[kRadiusSearchRange] = mRadiusSearchRange;
     d[kRadiusSearchCount] = mRadiusSearchCount;
     d[kRadius] = mRadius;
+    d[kRadiusScalerForASBuilding] = mRadiusScalerForASBuilding;
+    d[kUseDMaxForASBuilding] = mUseDMaxForASBuilding;
     return d;
 }
 
@@ -139,16 +151,22 @@ void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderDat
         outputIndices.resize(targetCount);
         std::vector<float3> outputPositions;
         outputPositions.resize(targetCount);
-        eliminatie(pRenderContext, initialVirtualLights, targetCount, outputIndices, outputPositions);
+        std::vector<float> dmaxs;
+        dmaxs.resize(targetCount);
+        eliminatie(pRenderContext, initialVirtualLights, targetCount, outputIndices, outputPositions, dmaxs);
 
         mpSampleEliminatedVirtualLights->getPositionBuffer()->setBlob(outputPositions.data(), 0, outputPositions.size() * sizeof(float3));
         mpSampleEliminatedVirtualLights->setCount(pRenderContext, targetCount);
         pRenderContext->flush(true);
         ShaderVar cb = mpComputePass["CB"];
+        cb["gUseDMaxForASBuilding"] = mUseDMaxForASBuilding;
+        cb["gRadiusScalerForASBuilding"] = mRadiusScalerForASBuilding;
         initialVirtualLights->setShaderData(cb["gInitialVirtualLights"]);
         mpSampleEliminatedVirtualLights->setShaderData(cb["gSampleEliminatedVirtualLights"]);
         Buffer::SharedPtr indicesBuffer = Buffer::createStructured(sizeof(uint), targetCount, ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, outputIndices.data());
+        Buffer::SharedPtr dMaxBuffer = Buffer::createStructured(sizeof(float), targetCount, ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, dmaxs.data());
         mpComputePass["gIndices"] = indicesBuffer;
+        mpComputePass["gDMaxs"] = dMaxBuffer;
         mpComputePass->execute(pRenderContext, uint3(targetCount, 1, 1));
         pRenderContext->flush(true);
         mpSampleEliminatedVirtualLights->buildAS(pRenderContext);
@@ -164,6 +182,8 @@ void SampleEliminatePass::renderUI(Gui::Widgets& widget)
     widget.var("RadiusSearchRange", mRadiusSearchRange, 0.0f, 1.0f);
     widget.var("RadiusSearchCount", mRadiusSearchCount, 0u, 1000u);
     widget.var("Radius", mRadius, 0.0f, 1.0f);
+    widget.var("RadiusScalerForASBuilding", mRadiusScalerForASBuilding, 0.0f, 10.0f);
+    widget.checkbox("UseDMaxForASBuilding", mUseDMaxForASBuilding);
 }
 
 void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
@@ -182,7 +202,7 @@ void SampleEliminatePass::setScene(RenderContext* pRenderContext, const Scene::S
     }
 }
 
-void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions)
+void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions, std::vector<float>& dmaxs)
 {
     uint inputCount = initialVirtualLights->getCount();
     Buffer::SharedPtr positionReadBuffer = Buffer::create(initialVirtualLights->getPositionBuffer()->getSize(), Resource::BindFlags::None, Buffer::CpuAccess::Read);
@@ -277,6 +297,7 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
         {
             outputIndices[i] = maxHeap.GetIDFromHeap(i);
             outputPositions[i] = inputPositions[outputIndices[i]];
+            dmaxs[i] = dMaxList[outputIndices[i]];
         }
     }
     positionReadBuffer->unmap();

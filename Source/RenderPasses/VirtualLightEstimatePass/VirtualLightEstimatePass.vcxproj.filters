@@ -6,4 +6,7 @@
   <ItemGroup>
     <ClInclude Include="VirtualLightEstimatePass.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ShaderSource Include="VirtualLightEstimate.cs.slang" />
+  </ItemGroup>
 </Project>

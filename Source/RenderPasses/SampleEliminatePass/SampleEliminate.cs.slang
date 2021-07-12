@@ -7,11 +7,14 @@ import Utils.VirtualLight.VirtualLightContainer;
 
 cbuffer CB
 {
+    bool gUseDMaxForASBuilding;
+    float gRadiusScalerForASBuilding;
     VirtualLightContainer gInitialVirtualLights;
     VirtualLightContainer gSampleEliminatedVirtualLights;
 };
 
 StructuredBuffer<uint> gIndices;
+StructuredBuffer<float> gDMaxs;
 
 [numthreads(256, 1, 1)]
 void main(uint3 launchIndex : SV_DispatchThreadID)
@@ -24,7 +27,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
     uint eliminatedVPLIndex = launchIndex.x;
     float3 posW = gSampleEliminatedVirtualLights.getPosition(eliminatedVPLIndex);
 
-    float3 radius = float3(gSampleEliminatedVirtualLights.boundingBoxRadius);
+    float3 radius = float3(gUseDMaxForASBuilding? gRadiusScalerForASBuilding * gDMaxs[eliminatedVPLIndex]: gSampleEliminatedVirtualLights.boundingBoxRadius);
     gSampleEliminatedVirtualLights.boundingBoxBuffer[eliminatedVPLIndex].minPoint = posW - radius;
     gSampleEliminatedVirtualLights.boundingBoxBuffer[eliminatedVPLIndex].maxPoint = posW + radius;
 

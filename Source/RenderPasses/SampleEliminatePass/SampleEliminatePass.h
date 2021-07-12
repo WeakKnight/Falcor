@@ -51,7 +51,7 @@ public:
     virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
 
 private:
-    void eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions);
+    void eliminatie(RenderContext* pRenderContext, VirtualLightContainer::SharedPtr initialVirtualLights, uint targetCount, std::vector<uint>& outputIndices, std::vector<float3>& outputPositions, std::vector<float>& dmaxs);
 
 private:
     SampleEliminatePass() = default;
@@ -59,6 +59,8 @@ private:
     float   mRadiusSearchRange = 0.37f;
     uint    mRadiusSearchCount = 350;
     float   mRadius = 0.05f;
+    float   mRadiusScalerForASBuilding = 1.5f;
+    bool    mUseDMaxForASBuilding = false;
     Scene::SharedPtr                    mpScene;
     SampleGenerator::SharedPtr          mpSampleGenerator;
     ComputePass::SharedPtr              mpComputePass;

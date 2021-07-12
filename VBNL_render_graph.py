@@ -34,7 +34,7 @@ def render_graph_DefaultRenderGraph():
     g.addPass(VirtualLightGeneratePass, 'VirtualLightGeneratePass')
     VirtualLightVisPass = createPass('VirtualLightVisPass', {'radius': 0.004000000189989805, 'visMode': 0})
     g.addPass(VirtualLightVisPass, 'VirtualLightVisPass')
-    SampleEliminatePass = createPass('SampleEliminatePass', {'ratio': 0.20000000298023224, 'radiusSearchRange': 0.3700000047683716, 'radiusSearchCount': 350, 'radius': 0.05000000074505806})
+    SampleEliminatePass = createPass('SampleEliminatePass', {'ratio': 0.20000000298023224, 'radiusSearchRange': 0.3700000047683716, 'radiusSearchCount': 350, 'radius': 0.05000000074505806, 'useDMaxForASBuilding': False})
     g.addPass(SampleEliminatePass, 'SampleEliminatePass')
     g.addEdge('VirtualLightGeneratePass.dummy', 'SampleEliminatePass.input')
     g.addEdge('SampleEliminatePass.output', 'VirtualLightVisPass.dummy')
