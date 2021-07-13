@@ -229,7 +229,7 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
             kdtree.PointsSearchExtRadiusFirst(pos, mRadiusSearchCount, mRadiusSearchRange, actualCount, actualSquaredRadius);
             float sampleDomainArea = ratio * cy::Pi<float>() * actualSquaredRadius / (float)actualCount;
             float result = sqrt(sampleDomainArea / (2.0 * sqrt(3.0)));
-            result = std::min(mRadius, result);
+            result = std::max(std::min(mRadius, result), 1e-6f);
             return result;
         };
 
@@ -244,10 +244,6 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
             else
             {
                 dMaxList[i] = 2.0f * getPoissonDiskRadius(inputPositions[i]);
-            }
-            if (dMaxList[i] <= 0.0f)
-            {
-                logInfo("Invalid Radius");
             }
             reverseDMaxList[i] = dMaxList[i];
         });
