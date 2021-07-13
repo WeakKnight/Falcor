@@ -41,6 +41,7 @@ namespace
     const char kRadiusSearchRange[] = "radiusSearchRange";
     const char kRadiusSearchCount[] = "radiusSearchCount";
     const char kRadius[] = "radius";
+    const char kUniformSE[] = "uniformSE";
     const char kRadiusScalerForASBuilding[] = "radiusScalerForASBuilding";
     const char kUseDMaxForASBuilding[] = "useDMaxForASBuilding";
     
@@ -87,6 +88,10 @@ SampleEliminatePass::SharedPtr SampleEliminatePass::create(RenderContext* pRende
         {
             pPass->mRadius = value;
         }
+        else if (key == kUniformSE)
+        {
+            pPass->mUniformSE = value;
+        }
         else if (key == kRadiusScalerForASBuilding)
         {
             pPass->mRadiusScalerForASBuilding = value;
@@ -115,6 +120,7 @@ Dictionary SampleEliminatePass::getScriptingDictionary()
     d[kRadiusSearchRange] = mRadiusSearchRange;
     d[kRadiusSearchCount] = mRadiusSearchCount;
     d[kRadius] = mRadius;
+    d[kUniformSE] = mUniformSE;
     d[kRadiusScalerForASBuilding] = mRadiusScalerForASBuilding;
     d[kUseDMaxForASBuilding] = mUseDMaxForASBuilding;
     return d;
@@ -182,6 +188,7 @@ void SampleEliminatePass::renderUI(Gui::Widgets& widget)
     widget.var("RadiusSearchRange", mRadiusSearchRange, 0.0f, 1.0f);
     widget.var("RadiusSearchCount", mRadiusSearchCount, 0u, 1000u);
     widget.var("Radius", mRadius, 0.0f, 1.0f);
+    widget.checkbox("UniformSE", mUniformSE);
     widget.var("RadiusScalerForASBuilding", mRadiusScalerForASBuilding, 0.0f, 10.0f);
     widget.checkbox("UseDMaxForASBuilding", mUseDMaxForASBuilding);
 }
@@ -230,7 +237,18 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
         std::vector<float> reverseDMaxList(inputCount);
         tbb::parallel_for(0u, inputCount, 1u, [&](uint i)
         {
-            dMaxList[i] = 2.0f * getPoissonDiskRadius(inputPositions[i]);
+            if (mUniformSE)
+            {
+                dMaxList[i] = 2.0f * mRadius;
+            }
+            else
+            {
+                dMaxList[i] = 2.0f * getPoissonDiskRadius(inputPositions[i]);
+            }
+            if (dMaxList[i] <= 0.0f)
+            {
+                logInfo("Invalid Radius");
+            }
             reverseDMaxList[i] = dMaxList[i];
         });
 

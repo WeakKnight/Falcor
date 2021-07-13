@@ -59,6 +59,7 @@ private:
     float   mRadiusSearchRange = 0.37f;
     uint    mRadiusSearchCount = 350;
     float   mRadius = 0.05f;
+    bool    mUniformSE = false;
     float   mRadiusScalerForASBuilding = 1.5f;
     bool    mUseDMaxForASBuilding = false;
     Scene::SharedPtr                    mpScene;

@@ -242,7 +242,7 @@ public:
         std::vector<PointInfo> infos;
         infos.resize(512);
         actualCount = GetPoints(position, maxRadius, 512, infos.data());
-        std::sort(infos.begin(), infos.end(), [](PointInfo i1, PointInfo i2) {  return (i1.distanceSquared < i2.distanceSquared); });
+        std::sort(infos.begin(), infos.begin() + actualCount - 1, [](PointInfo i1, PointInfo i2) {  return (i1.distanceSquared < i2.distanceSquared); });
         if (actualCount > maxCount)
         {
             actualCount = maxCount;
