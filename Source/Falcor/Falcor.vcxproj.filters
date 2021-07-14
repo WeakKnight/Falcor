@@ -541,6 +541,9 @@
     <ClInclude Include="Utils\VirtualLight\VirtualLightContainer.h">
       <Filter>Utils\VirtualLight</Filter>
     </ClInclude>
+    <ClInclude Include="Utils\VirtualLight\MegaTextureContainer.h">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Core">
@@ -1281,6 +1284,9 @@
     <ClCompile Include="Utils\VirtualLight\VirtualLightContainer.cpp">
       <Filter>Utils\VirtualLight</Filter>
     </ClCompile>
+    <ClCompile Include="Utils\VirtualLight\MegaTextureContainer.cpp">
+      <Filter>Utils\VirtualLight</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="dependencies.xml" />
@@ -1669,6 +1675,9 @@
     </ShaderSource>
     <ShaderSource Include="Scene\RaytracingInlineHelper.slang">
       <Filter>Scene</Filter>
+    </ShaderSource>
+    <ShaderSource Include="Utils\VirtualLight\MegaTextureContainer.slang">
+      <Filter>Utils\VirtualLight</Filter>
     </ShaderSource>
   </ItemGroup>
 </Project>

@@ -56,6 +56,9 @@ public:
 
 private:
     VirtualLightEstimatePass() = default;
+
+    uint mPhotonPathCount = 1650000;
+    uint mTextureItemSize = 8;
     Scene::SharedPtr mpScene;
     ComputePass::SharedPtr  mpComputePass;
     SampleGenerator::SharedPtr mpSampleGenerator;

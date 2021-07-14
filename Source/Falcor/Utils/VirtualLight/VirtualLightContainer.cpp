@@ -51,8 +51,8 @@ namespace Falcor
         mCount = count;
     }
 
-    VirtualLightContainer::VirtualLightContainer(uint32_t capacity, float boundingBoxRadius)
-        :mCapacity(capacity),
+    VirtualLightContainer::VirtualLightContainer(uint32_t capacity, float boundingBoxRadius):
+        mCapacity(capacity),
         mCount(0),
         mBoundingBoxRadius(boundingBoxRadius)
     {

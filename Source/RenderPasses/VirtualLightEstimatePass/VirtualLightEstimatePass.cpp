@@ -26,7 +26,7 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 #include "VirtualLightEstimatePass.h"
-
+#include "Utils/VirtualLight/VirtualLightContainer.h"
 
 namespace
 {
@@ -34,6 +34,10 @@ namespace
     const char kDummyInput[] = "input";
     const char kDummyOutput[] = "output";
     const char kDesc[] = "Insert pass description here";
+
+    const char kPhotonPathCount[] = "Photon Path Count";
+    const char kTextureItemSize[] = "Texture Item Size";
+
     const std::string kDicInitialVirtualLights = "initialVirtualLights";
     const std::string kDicSampleEliminatedVirtualLights = "sampleEliminatedVirtualLights";
     const std::string kDicCurVirtualLights = "curVirtualLights";
@@ -61,6 +65,14 @@ VirtualLightEstimatePass::SharedPtr VirtualLightEstimatePass::create(RenderConte
     SharedPtr pPass = SharedPtr(new VirtualLightEstimatePass);
     for (const auto& [key, value] : dict)
     {
+        if (key == kPhotonPathCount)
+        {
+            pPass->mPhotonPathCount = value;
+        }
+        else if (key == kTextureItemSize)
+        {
+            pPass->mTextureItemSize = value;
+        }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
     Program::Desc desc;
@@ -77,6 +89,8 @@ std::string VirtualLightEstimatePass::getDesc()
 Dictionary VirtualLightEstimatePass::getScriptingDictionary()
 {
     Dictionary d;
+    d[kPhotonPathCount] = mPhotonPathCount;
+    d[kTextureItemSize] = mTextureItemSize;
     return d;
 }
 
@@ -84,15 +98,22 @@ RenderPassReflection VirtualLightEstimatePass::reflect(const CompileData& compil
 {
     // Define the required resources here
     RenderPassReflection reflector;
+    reflector.addInput(kDummyInput, "useless dummy Input");
+    reflector.addOutput(kDummyOutput, "useless dummy Output");
     return reflector;
 }
 
 void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    // renderData holds the requested resources
-    // auto& pTexture = renderData["src"]->asTexture();
     if (mpScene == nullptr)
     {
+        return;
+    }
+
+    VirtualLightContainer::SharedPtr sampleEliminatedVirtualLights = renderData.getDictionary()[kDicSampleEliminatedVirtualLights];
+    if (sampleEliminatedVirtualLights == nullptr)
+    {
+        debugBreak(); // should not be nullptr here
         return;
     }
 }
