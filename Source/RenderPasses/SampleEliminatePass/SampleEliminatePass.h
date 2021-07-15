@@ -67,3 +67,95 @@ private:
     ComputePass::SharedPtr              mpComputePass;
     VirtualLightContainer::SharedPtr    mpSampleEliminatedVirtualLights;
 };
+
+
+struct comparatorFunc
+{
+    bool operator ()(const uint2& c1, const uint2& c2) const
+    {
+        if (c1.x != c2.x)
+            return c1.x < c2.x;
+        if (c1.y != c2.y)
+            return c1.y < c2.y;
+        return false;
+    }
+};
+
+class multiplePartition
+{
+public:
+    class multiplePartition(float3& min, float3& max)
+    {
+        boundingBoxMin = min;
+        boundingBoxMax = max;
+        diagonalVector = max - min;
+    }
+    uint3 putIntoPartitionOne(float3 &point)
+    {
+        uint3 gridIndex;
+        float3 relativePos = point - boundingBoxMin;
+        if (relativePos.x <= diagonalVector.x * 0.5f)
+            gridIndex.x = 0;
+        else
+            gridIndex.x = 1;
+        if (relativePos.y <= diagonalVector.y * 0.5f)
+            gridIndex.y = 0;
+        else
+            gridIndex.y = 1;
+        if (relativePos.z <= diagonalVector.z * 0.5f)
+            gridIndex.z = 0;
+        else
+            gridIndex.z = 1;
+
+        return gridIndex;
+
+    }
+
+    uint3 putIntoPartitionTwo(float3& point)
+    {
+        uint3 gridIndex;
+        float3 relativePos = point - boundingBoxMin;
+        if (relativePos.x <= diagonalVector.x / 3.0f)
+            gridIndex.x = 0;
+        else if(relativePos.x <= diagonalVector.x * 2.0f/ 3.0f)
+            gridIndex.x = 1;
+        else
+            gridIndex.x = 2;
+
+        if (relativePos.y <= diagonalVector.y / 3.0f)
+            gridIndex.y = 0;
+        else if (relativePos.y <= diagonalVector.y * 2.0f / 3.0f)
+            gridIndex.y = 1;
+        else
+            gridIndex.y = 2;
+
+        if (relativePos.z <= diagonalVector.z / 3.0f)
+            gridIndex.z = 0;
+        else if (relativePos.z <= diagonalVector.z * 2.0f / 3.0f)
+            gridIndex.z = 1;
+        else
+            gridIndex.z = 2;
+
+        return gridIndex;
+    }
+
+    int linearIndexForPartitionOne(uint3 gridIndex)
+    {
+        return gridIndex.x + gridIndex.y * 2 + gridIndex.z * 4;
+
+    }
+
+    int linearIndexForPartitionTwo(uint3 gridIndex)
+    {
+        return gridIndex.x + gridIndex.y * 3 + gridIndex.z * 9;
+    }
+
+private:
+    float3 boundingBoxMin;
+    float3 boundingBoxMax;
+    float3 diagonalVector;
+
+
+};
+
+

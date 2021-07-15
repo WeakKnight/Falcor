@@ -30,6 +30,10 @@
 #include "cyHeap.h"
 #include "cyPointCloud.h"
 #include <tbb/parallel_for.h>
+#include <tbb/task_scheduler_init.h>
+#include <limits>
+
+#define parallel false
 
 namespace
 {
@@ -154,11 +158,11 @@ void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderDat
         mpSampleEliminatedVirtualLights = VirtualLightContainer::create(targetCount, initialVirtualLights->getBoundingBoxRadius());
 
         std::vector<uint32_t> outputIndices;
-        outputIndices.resize(targetCount);
+        outputIndices.reserve(targetCount);
         std::vector<float3> outputPositions;
-        outputPositions.resize(targetCount);
+        outputPositions.reserve(targetCount);
         std::vector<float> dmaxs;
-        dmaxs.resize(targetCount);
+        dmaxs.reserve(targetCount);
         eliminatie(pRenderContext, initialVirtualLights, targetCount, outputIndices, outputPositions, dmaxs);
 
         mpSampleEliminatedVirtualLights->getPositionBuffer()->setBlob(outputPositions.data(), 0, outputPositions.size() * sizeof(float3));
@@ -169,8 +173,8 @@ void SampleEliminatePass::execute(RenderContext* pRenderContext, const RenderDat
         cb["gRadiusScalerForASBuilding"] = mRadiusScalerForASBuilding;
         initialVirtualLights->setShaderData(cb["gInitialVirtualLights"]);
         mpSampleEliminatedVirtualLights->setShaderData(cb["gSampleEliminatedVirtualLights"]);
-        Buffer::SharedPtr indicesBuffer = Buffer::createStructured(sizeof(uint), targetCount, ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, outputIndices.data());
-        Buffer::SharedPtr dMaxBuffer = Buffer::createStructured(sizeof(float), targetCount, ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, dmaxs.data());
+        Buffer::SharedPtr indicesBuffer = Buffer::createStructured(sizeof(uint), outputIndices.size(), ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, outputIndices.data());
+        Buffer::SharedPtr dMaxBuffer = Buffer::createStructured(sizeof(float), dmaxs.size(), ResourceBindFlags::UnorderedAccess, Buffer::CpuAccess::None, dmaxs.data());
         mpComputePass["gIndices"] = indicesBuffer;
         mpComputePass["gDMaxs"] = dMaxBuffer;
         mpComputePass->execute(pRenderContext, uint3(targetCount, 1, 1));
@@ -216,6 +220,465 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
     pRenderContext->copyBufferRegion(positionReadBuffer.get(), 0, initialVirtualLights->getPositionBuffer().get(), 0, initialVirtualLights->getPositionBuffer()->getSize());
     pRenderContext->flush(true);
     float3* inputPositions = (float3*)positionReadBuffer->map(Buffer::MapType::Read);
+
+    if (parallel)
+    {
+        float ratio = float(inputCount) / float(targetCount);
+
+        float3 boundingBoxMin(std::numeric_limits<float>::max());
+        float3 boundingBoxMax(-std::numeric_limits<float>::max());
+        // build the large boundingbox
+        {
+            //to do: parallel reduction, now just in a bruce-force manner
+            //int num_threads = tbb::task_scheduler_init::default_num_threads();
+            for (int i = 0; i < inputCount; i++)
+            {
+                float3 thisPoint = inputPositions[i];
+
+                if (thisPoint.x < boundingBoxMin.x) boundingBoxMin.x = thisPoint.x;
+                if (thisPoint.y < boundingBoxMin.y) boundingBoxMin.y = thisPoint.y;
+                if (thisPoint.z < boundingBoxMin.z) boundingBoxMin.z = thisPoint.z;
+
+                if (thisPoint.x > boundingBoxMax.x) boundingBoxMax.x = thisPoint.x;
+                if (thisPoint.y > boundingBoxMax.y) boundingBoxMax.y = thisPoint.y;
+                if (thisPoint.z > boundingBoxMax.z) boundingBoxMax.z = thisPoint.z;
+            }
+        }
+
+        multiplePartition mp(boundingBoxMin, boundingBoxMax);
+
+        //seperate the box with 2*2*2 grid cells or 3*3*3 grid cells
+        // 
+        //global indices
+        std::vector<uint> partitionOneIndices[8];
+        std::vector<uint> partitionTwoIndices[27];
+        //positions
+        std::vector<float3> partitionOne[8];
+        std::vector<float3> partitionTwo[27];
+        //weights
+        std::vector<float> partitionOneWeights[8];
+        std::vector<float> partitionTwoWeights[27];
+        //kdtrees
+        cy::PointCloud<float3, float, 3, uint> kdtrees1[8];
+        cy::PointCloud<float3, float, 3, uint> kdtrees2[27];
+
+        for (int i = 0; i < 8; i++)
+        {
+            partitionOneIndices[i].reserve(int(inputCount / 8.0f));
+            partitionOne[i].reserve(int(inputCount / 8.0f));
+        }
+
+        for (int i = 0; i < 27; i++)
+        {
+            partitionTwoIndices[i].reserve(int(inputCount / 27.0f));
+            partitionTwo[i].reserve(int(inputCount / 27.0f));
+        }
+
+        std::map<uint2, uint2, comparatorFunc> partitionMapping;
+        std::map<uint2, uint2, comparatorFunc> partitionMapping2;
+
+
+        //initialization phase 1
+        for (uint index = 0; index < inputCount; index++)
+        {
+            float3 point = inputPositions[index];
+
+            uint3 gridindexForP1 = mp.putIntoPartitionOne(point);
+            uint linearIndex1 = mp.linearIndexForPartitionOne(gridindexForP1);
+
+            uint3 gridindexForP2 = mp.putIntoPartitionTwo(point);
+            uint linearIndex2 = mp.linearIndexForPartitionTwo(gridindexForP2);
+
+            partitionOneIndices[linearIndex1].push_back(index);
+            partitionOne[linearIndex1].push_back(point);
+
+
+            partitionTwoIndices[linearIndex2].push_back(index);
+            partitionTwo[linearIndex2].push_back(point);
+
+            uint2 mappingKey = uint2(linearIndex1, partitionOneIndices[linearIndex1].size()-1);
+            uint2 mappingValue = uint2(linearIndex2, partitionTwoIndices[linearIndex2].size()-1);
+
+            partitionMapping.insert(std::pair<uint2, uint2>(mappingKey, mappingValue));
+            partitionMapping2.insert(std::pair<uint2, uint2>(mappingValue, mappingKey));
+        }
+
+        //initialization phase 2
+        std::vector<float> dMaxList1[8];
+        std::vector<float> reverseDMaxList1[8];
+
+        std::vector<float> dMaxList2[27];
+        std::vector<float> reverseDMaxList2[27];
+
+        for (int i = 0; i < 8; i++)
+        {
+            kdtrees1[i].Build(partitionOne[i].size(), partitionOne[i].data());
+            dMaxList1[i].resize(partitionOne[i].size());
+            reverseDMaxList1[i].resize(partitionOne[i].size());
+            partitionOneWeights[i].resize(partitionOne[i].size());
+        }
+
+        for (int i = 0; i < 27; i++)
+        {
+            kdtrees2[i].Build(partitionTwo[i].size(), partitionTwo[i].data());
+            dMaxList2[i].resize(partitionTwo[i].size());
+            reverseDMaxList2[i].resize(partitionTwo[i].size());
+            partitionTwoWeights[i].resize(partitionTwo[i].size());
+        }
+
+
+        auto getPoissonDiskRadiusInP1 = [&](float3 pos,uint i)
+        {
+            uint actualCount;
+            float actualSquaredRadius;
+            kdtrees1[i].PointsSearchExtRadiusFirst(pos, mRadiusSearchCount, mRadiusSearchRange, actualCount, actualSquaredRadius);
+            float sampleDomainArea = ratio * cy::Pi<float>() * actualSquaredRadius / (float)actualCount;
+            float result = sqrt(sampleDomainArea / (2.0 * sqrt(3.0)));
+            result = std::max(std::min(mRadius, result), 1e-6f);
+            return result;
+        };
+
+        auto getPoissonDiskRadiusInP2 = [&](float3 pos, uint i)
+        {
+            uint actualCount;
+            float actualSquaredRadius;
+            kdtrees2[i].PointsSearchExtRadiusFirst(pos, mRadiusSearchCount, mRadiusSearchRange, actualCount, actualSquaredRadius);
+            float sampleDomainArea = ratio * cy::Pi<float>() * actualSquaredRadius / (float)actualCount;
+            float result = sqrt(sampleDomainArea / (2.0 * sqrt(3.0)));
+            result = std::max(std::min(mRadius, result), 1e-6f);
+            return result;
+        };
+
+        for (int j = 0; j < 8; j++)
+        {
+            uint count = partitionOne[j].size();
+            tbb::parallel_for(0u, count, 1u, [&](uint i)
+            {
+                if (mUniformSE)
+                {
+                    dMaxList1[j][i] = (2.0f * mRadius);
+                }
+                else
+                {
+                    dMaxList1[j][i] = (2.0f * getPoissonDiskRadiusInP1(partitionOne[j].at(i), j));
+                }
+                reverseDMaxList1[j][i] = (dMaxList1[j].at(i));
+            });
+        }
+
+        for (int j = 0; j < 27; j++)
+        {
+            uint count = partitionTwo[j].size();
+            tbb::parallel_for(0u, count, 1u, [&](uint i)
+            {
+                if (mUniformSE)
+                {
+                    dMaxList2[j][i] = (2.0f * mRadius);
+                }
+                else
+                {
+                    dMaxList2[j][i] = (2.0f * getPoissonDiskRadiusInP2(partitionTwo[j].at(i), j));
+                }
+                reverseDMaxList2[j][i] = (dMaxList2[j].at(i));
+            });
+        }
+        //initialization phase 3
+        auto weightFunction = [&](float d2, float dMax)
+        {
+            float d = sqrt(d2);
+            const float alpha = 8.0f;
+            return std::pow(1.0 - d / dMax, alpha);
+        };
+
+        for (int j = 0; j < 8; j++)
+        {
+            uint count = partitionOne[j].size();
+            tbb::parallel_for(0u, count, 1u, [&](uint index)
+            {
+                float3 point = partitionOne[j][index];
+                float dMax = dMaxList1[j][index];
+                kdtrees1[j].GetPoints(point, dMax, [&](uint i, float3 const& p, float d2, float&)
+                {
+                    if (i >= count)
+                    {
+                        return;
+                    }
+                    if (i != index)
+                    {
+                        float weight = weightFunction(d2, dMax);
+                        partitionOneWeights[j][index] += weight;
+                        if (reverseDMaxList1[j][i] < dMax)
+                        {
+                            reverseDMaxList1[j][i] = dMax;
+                        }
+                    }
+                });
+                
+            });
+        }
+
+        for (int j = 0; j < 27; j++)
+        {
+            uint count = partitionTwo[j].size();
+            tbb::parallel_for(0u, count, 1u, [&](uint index)
+            {
+                float3 point = partitionTwo[j][index];
+                float dMax = dMaxList2[j][index];
+                kdtrees2[j].GetPoints(point, dMax, [&](uint i, float3 const& p, float d2, float&)
+                {
+                    if (i >= count)
+                    {
+                        return;
+                    }
+                    if (i != index)
+                    {
+                        float weight = weightFunction(d2, dMax);
+                        partitionTwoWeights[j][index] += weight;
+                        if (reverseDMaxList2[j][i] < dMax)
+                        {
+                            reverseDMaxList2[j][i] = dMax;
+                        }
+                    }
+                });
+
+            });
+        }
+
+        
+        cy::Heap<float, uint> maxHeaps1[8];
+        cy::Heap<float, uint> maxHeaps2[27];
+
+        for (int i = 0; i < 8; i++)
+        {
+            maxHeaps1[i].SetDataPointer(partitionOneWeights[i].data(), partitionOne[i].size());
+            maxHeaps1[i].Build();
+        }
+
+        for (int i = 0; i < 27; i++)
+        {
+            maxHeaps2[i].SetDataPointer(partitionTwoWeights[i].data(), partitionTwo[i].size());
+            maxHeaps2[i].Build();
+        }
+        uint remainCount = inputCount;
+
+        bool stopAtPartitionTwo = true;
+        while (remainCount > targetCount)
+        {
+            int2 deletedPoints1[8];
+            float3 deletedPointsPos1[8];
+
+            tbb::parallel_for(0u, 8u, 1u, [&](uint grid)
+            {
+                uint num = maxHeaps1[grid].NumItemsInHeap();
+                if (num > 0)
+                {
+                    uint index = maxHeaps1[grid].GetTopItemID();
+                    maxHeaps1[grid].Pop();
+
+                    float3 point = partitionOne[grid].at(index);
+
+                    uint maxCount = partitionOne[grid].size();
+                    kdtrees1[grid].GetPoints(point, reverseDMaxList1[grid][index], [&](uint i, float3 const& p, float d2, float&)
+                    {
+                        if (i > maxCount)
+                        {
+                            return;
+                        }
+                        if (i != index)
+                        {
+                            float dMax = dMaxList1[grid][i];
+                            if (dMax * dMax > d2)
+                            {
+                                float weight = weightFunction(d2, dMax);
+                                partitionOneWeights[grid].at(i) -= weight;
+                                maxHeaps1[grid].MoveItemDown(i);
+                            }
+                        }
+                    });
+                    auto iter = partitionMapping.find(uint2(grid, index));
+                    deletedPoints1[grid] = iter->second;
+                    deletedPointsPos1[grid] = point;
+                }
+                else
+                {
+                    deletedPoints1[grid] = int2(-1, -1);
+                }
+              
+            });
+
+            tbb::parallel_for(0u, 27u, 1u, [&](uint grid)
+            {
+                std::vector<uint> indices;
+                for (int i = 0; i < 8; i++)
+                {
+                    if (deletedPoints1[i].x == grid)
+                        indices.push_back(i);
+                }
+
+                for (int i = 0; i < indices.size(); i++)
+                {
+                    uint2 mappedIndex = deletedPoints1[indices.at(i)];
+                    uint index = mappedIndex.y;
+
+                    maxHeaps2[grid].SetItem(index, std::numeric_limits<float>::max());
+                    maxHeaps2[grid].MoveItemUp(index);
+                    maxHeaps2[grid].Pop();
+
+
+                    uint maxCount = partitionTwo[grid].size();
+                    kdtrees2[grid].GetPoints(deletedPointsPos1[indices.at(i)], reverseDMaxList2[grid][index], [&](uint i, float3 const& p, float d2, float&)
+                    {
+                        if (i > maxCount)
+                        {
+                            return;
+                        }
+                        if (i != index)
+                        {
+                            float dMax = dMaxList2[grid][i];
+                            if (dMax * dMax > d2)
+                            {
+                                float weight = weightFunction(d2, dMax);
+                                partitionTwoWeights[grid].at(i) -= weight;
+                                maxHeaps2[grid].MoveItemDown(i);
+                            }
+                        }
+                    });
+
+                }
+
+            });
+
+            remainCount -= 8;
+            if (remainCount < targetCount)
+            {
+                stopAtPartitionTwo = false;
+                break;
+            }   
+
+            int2 deletedPoints2[27];
+            float3 deletedPointsPos2[27];
+
+            tbb::parallel_for(0u, 27u, 1u, [&](uint grid)
+            {
+                uint num = maxHeaps2[grid].NumItemsInHeap();
+                if (num > 0)
+                {
+                    uint index = maxHeaps2[grid].GetTopItemID();
+                    maxHeaps2[grid].Pop();
+
+                    float3 point = partitionTwo[grid].at(index);
+                    uint maxCount = partitionTwo[grid].size();
+                    kdtrees2[grid].GetPoints(point, reverseDMaxList2[grid][index], [&](uint i, float3 const& p, float d2, float&)
+                    {
+                        if (i > maxCount)
+                        {
+                            return;
+                        }
+                        if (i != index)
+                        {
+                            float dMax = dMaxList2[grid][i];
+                            if (dMax * dMax > d2)
+                            {
+                                float weight = weightFunction(d2, dMax);
+                                partitionTwo[grid].at(i) -= weight;
+                                maxHeaps2[grid].MoveItemDown(i);
+                            }
+                        }
+                    });
+
+                    auto iter = partitionMapping2.find(uint2(grid, index));
+                    deletedPoints2[grid] = iter->second;
+                    deletedPointsPos2[grid] = point;
+
+                }
+                else
+                {
+                    deletedPoints2[grid] = int2(-1, -1);
+                }
+                
+            });
+            
+
+            tbb::parallel_for(0u, 8u, 1u, [&](uint grid)
+            {
+                std::vector<uint> indices;
+                for (int i = 0; i < 27; i++)
+                {
+                    if (deletedPoints2[i].x == grid)
+                        indices.push_back(i);
+                }
+
+                for (int i = 0; i < indices.size(); i++)
+                {
+                    uint2 mappedIndex = deletedPoints2[indices.at(i)];
+                    uint index = mappedIndex.y;
+
+                    maxHeaps1[grid].SetItem(index, std::numeric_limits<float>::max());
+                    maxHeaps1[grid].MoveItemUp(index);
+                    maxHeaps1[grid].Pop();
+                    uint maxCount = partitionOne[grid].size();
+                    kdtrees1[grid].GetPoints(deletedPointsPos2[indices.at(i)], reverseDMaxList1[grid][index], [&](uint i, float3 const& p, float d2, float&)
+                    {
+                        if (i > maxCount)
+                        {
+                            return;
+                        }
+                        if (i != index)
+                        {
+                            float dMax = dMaxList1[grid][i];
+                            if (dMax * dMax > d2)
+                            {
+                                float weight = weightFunction(d2, dMax);
+                                partitionOneWeights[grid].at(i) -= weight;
+                                maxHeaps1[grid].MoveItemDown(i);
+                            }
+                        }
+                    });
+
+                }
+
+            });
+
+            remainCount -= 27;
+        }
+
+        if (stopAtPartitionTwo)
+        {
+            for (uint i = 0; i < 27; i++)
+            {
+                uint num = maxHeaps2[i].NumItemsInHeap();
+                for (int j = 0; j < num; j++)
+                {
+                    uint localIndex = maxHeaps2[i].GetIDFromHeap(i);
+                    outputIndices.push_back(partitionTwoIndices[i][localIndex]);
+                    outputPositions.push_back(partitionTwo[i][localIndex]);
+                    dmaxs.push_back(dMaxList2[i][localIndex]);
+
+                }
+
+            }
+
+        }
+        else
+        {
+            for (uint i = 0; i < 8; i++)
+            {
+                uint num = maxHeaps1[i].NumItemsInHeap();
+                for (int j = 0; j < num; j++)
+                {
+                    uint localIndex = maxHeaps1[i].GetIDFromHeap(i);
+                    outputIndices.push_back(partitionOneIndices[i][localIndex]);
+                    outputPositions.push_back(partitionOne[i][localIndex]);
+                    dmaxs.push_back(dMaxList1[i][localIndex]);
+
+                }
+
+            }
+            
+        }
+
+    }
+    else
     {
         cy::PointCloud<float3, float, 3, uint> kdtree;
         kdtree.Build(inputCount, inputPositions);
@@ -309,9 +772,9 @@ void SampleEliminatePass::eliminatie(RenderContext* pRenderContext, VirtualLight
         }
         for (uint i = 0; i < targetCount; i++)
         {
-            outputIndices[i] = maxHeap.GetIDFromHeap(i);
-            outputPositions[i] = inputPositions[outputIndices[i]];
-            dmaxs[i] = dMaxList[outputIndices[i]];
+            outputIndices.push_back(maxHeap.GetIDFromHeap(i));
+            outputPositions.push_back(inputPositions[outputIndices[i]]);
+            dmaxs.push_back(dMaxList[outputIndices[i]]);
         }
     }
     positionReadBuffer->unmap();
