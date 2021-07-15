@@ -29,6 +29,8 @@
 #include "Falcor.h"
 #include "FalcorExperimental.h"
 #include "Utils/Sampling/SampleGenerator.h"
+#include "Utils/VirtualLight/MegaTextureContainer.h"
+#include "Utils/Sampling/AliasTable.h"
 
 using namespace Falcor;
 
@@ -37,11 +39,6 @@ class VirtualLightEstimatePass : public RenderPass
 public:
     using SharedPtr = std::shared_ptr<VirtualLightEstimatePass>;
 
-    /** Create a new render pass object.
-        \param[in] pRenderContext The render context.
-        \param[in] dict Dictionary of serialized parameters.
-        \return A new object, or an exception is thrown if creation failed.
-    */
     static SharedPtr create(RenderContext* pRenderContext = nullptr, const Dictionary& dict = {});
 
     virtual std::string getDesc() override;
@@ -57,9 +54,11 @@ public:
 private:
     VirtualLightEstimatePass() = default;
 
-    uint mPhotonPathCount = 1650000;
+    uint mPhotonPathCount = 10000;
     uint mTextureItemSize = 8;
     Scene::SharedPtr mpScene;
     ComputePass::SharedPtr  mpComputePass;
     SampleGenerator::SharedPtr mpSampleGenerator;
+    MegaTextureContainer::SharedPtr mpRadianceContainer;
+    AliasTable::SharedPtr   mpEmissiveTriTable;
 };

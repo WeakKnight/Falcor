@@ -17,8 +17,19 @@ cbuffer CB
 {
     uint2 gViewportDims;
     uint gFrameIndex;
+    /*
+    Solid Circle Radius
+    */
     float gRadius;
     VirtualLightContainer gVirtualLightContainer;
+    /*
+    0: Uniform Solid Circle Mode
+    1: Adaptive Solid Circle Mode
+    2: Ring Mode
+    3: Hemisphere Mode
+    4: Hemisphere Radiance Mode
+    */
+    int gVisMode;
 };
 
 Texture2D<float4> gPos;
@@ -31,42 +42,69 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
     {
         return;
     }
-    
-    float4 gPosVal  = gPos[launchIndex.xy];
-    float3 posW     = gPosVal.xyz;
-    float  opacity  = gPosVal.w;
+
     gOutput[launchIndex.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
-    if(opacity > 0.0f)
+    
+    if (gVisMode >= 0 && gVisMode <= 2)
     {
-        RayDesc dummyRay;
-        dummyRay.Origin = posW;
-        dummyRay.Direction = float3(0.0, 1.0, 0.0);
-        dummyRay.TMin = 0.0f;
-        dummyRay.TMax = 0.0000001f;
+        float4 gPosVal  = gPos[launchIndex.xy];
+        float3 posW     = gPosVal.xyz;
+        float  opacity  = gPosVal.w;
 
-        RayQuery<RAY_FLAG_NONE> rayQuery;
-
-        rayQuery.TraceRayInline(
-            gVirtualLightContainer.as,
-            RAY_FLAG_NONE, // OR'd with template flags above
-            0xff, // InstanceInclusionMask
-            dummyRay);
-
-        while (rayQuery.Proceed())
+        if (opacity > 0.0f)
         {
-            if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
+            RayDesc dummyRay;
+            dummyRay.Origin = posW;
+            dummyRay.Direction = float3(0.0, 1.0, 0.0);
+            dummyRay.TMin = 0.0f;
+            dummyRay.TMax = 0.0000001f;
+
+            RayQuery<RAY_FLAG_NONE> rayQuery;
+
+            rayQuery.TraceRayInline(
+                gVirtualLightContainer.as,
+                RAY_FLAG_NONE, // OR'd with template flags above
+                0xff, // InstanceInclusionMask
+                dummyRay);
+
+            while (rayQuery.Proceed())
             {
-                uint AABBIndex = rayQuery.CandidatePrimitiveIndex();
-                PackedBoundingBox boundingBox = gVirtualLightContainer.boundingBoxBuffer[AABBIndex];
-                float3 vplOrigin = (boundingBox.minPoint + boundingBox.maxPoint) * 0.5f;
-                
-                float3 origin = posW;
-                float dis = sqrt(dot(origin - vplOrigin, origin - vplOrigin));
-                if(dis <= gRadius)
+                if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
                 {
-                    gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
-                    rayQuery.Abort();
-                    return;
+                    uint AABBIndex = rayQuery.CandidatePrimitiveIndex();
+                    PackedBoundingBox boundingBox = gVirtualLightContainer.boundingBoxBuffer[AABBIndex];
+                    float3 vplOrigin = (boundingBox.minPoint + boundingBox.maxPoint) * 0.5f;
+                    float radius = 0.5f * (boundingBox.maxPoint.x - boundingBox.minPoint.x);
+                    float3 origin = posW;
+                    float dis = sqrt(dot(origin - vplOrigin, origin - vplOrigin));
+
+                    if (gVisMode == 0)
+                    {
+                        if (dis < gRadius)
+                        {
+                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                            rayQuery.Abort();
+                            return;
+                        }
+                    }
+                    else if (gVisMode == 1)
+                    {
+                        if (dis <= radius)
+                        {
+                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                            rayQuery.Abort();
+                            return;
+                        }
+                    }
+                    else if (gVisMode == 2)
+                    {
+                        if (dis <= radius && dis >= (radius - 0.001f))
+                        {
+                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                            rayQuery.Abort();
+                            return;
+                        }
+                    }
                 }
             }
         }

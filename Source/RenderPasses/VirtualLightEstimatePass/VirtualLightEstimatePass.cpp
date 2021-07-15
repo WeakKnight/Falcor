@@ -116,6 +116,43 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         debugBreak(); // should not be nullptr here
         return;
     }
+
+    if (mpRadianceContainer == nullptr)
+    {
+        const uint capacity = 200000;
+        if (sampleEliminatedVirtualLights->getCount() > capacity)
+        {
+            debugBreak(); // should not be nullptr here
+            logError("exceed radiance container's maximum size");
+            return;
+        }
+        mpRadianceContainer = MegaTextureContainer::create(capacity, 8);
+    }
+
+    /*
+    Construct Alias Table For Emissive Triangles
+    */
+    if (mpEmissiveTriTable == nullptr)
+    {
+        auto lightCollection = mpScene->getLightCollection(pRenderContext);
+        auto emissiveTris = lightCollection->getMeshLightTriangles();
+        std::vector<float> weights(emissiveTris.size());
+        for (size_t i = 0; i < emissiveTris.size(); i++)
+        {
+            weights[i] = emissiveTris[i].flux;
+        }
+        std::mt19937 rng;
+        mpEmissiveTriTable = AliasTable::create(weights, rng);
+    }
+
+    ShaderVar cb = mpComputePass["CB"];
+    cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
+    sampleEliminatedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
+    mpRadianceContainer->setShaderData(cb["gRadianceContainer"]);
+    mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
+    mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
+
+    mpComputePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
 }
 
 void VirtualLightEstimatePass::renderUI(Gui::Widgets& widget)
@@ -132,6 +169,8 @@ void VirtualLightEstimatePass::setScene(RenderContext* pRenderContext, const Sce
         defines.add(mpSampleGenerator->getDefines());
         defines.add("_MS_DISABLE_ALPHA_TEST");
         defines.add("_DEFAULT_ALPHA_TEST");
+        defines.add("_PER_FRAME_PATH_COUNT", std::to_string(mPhotonPathCount));
+        defines.add("_INV_PER_FRAME_PATH_COUNT", std::to_string(1.0f / (float)mPhotonPathCount));
 
         mpComputePass->getProgram()->addDefines(defines);
         mpComputePass->setVars(nullptr); // Trigger recompile

@@ -10,22 +10,18 @@ namespace Falcor
 
     void MegaTextureContainer::setShaderData(const ShaderVar& var) const
     {
+        var["capacity"] = mCapacity;
+        var["perItemSize"] = mPerItemSize;
+        var["perItemStride"] = mPerItemSize * mPerItemSize * 12;
+        var["stepSize"] = 1.0f / (float)mPerItemSize;
         var["dataBuffer"] = mpDataBuffer;
     }
-
-    Shader::DefineList MegaTextureContainer::getDefineList() const
-    {
-        Shader::DefineList defineList = Shader::DefineList();
-        defineList.add("MEGA_TEXTURE_CONTAINER_CAPACITY", std::to_string(mCapacity));
-        defineList.add("MEGA_TEXTURE_CONTAINER_PER_ITEM_SIZE", std::to_string(mPerItemSize));
-        return defineList;
-    }
-
+    
     MegaTextureContainer::MegaTextureContainer(uint32_t capacity, uint perItemSize):
         mCapacity(capacity),
         mPerItemSize(perItemSize)
     {
         /* RGB Float Stride = 12 */
-        mpDataBuffer = Buffer::create(12lu * mPerItemSize * mPerItemSize * capacity);
+        mpDataBuffer = Buffer::create(static_cast<size_t>(12) * static_cast<size_t>(mPerItemSize) * static_cast<size_t>(mPerItemSize) * static_cast<size_t>(capacity));
     }
 }

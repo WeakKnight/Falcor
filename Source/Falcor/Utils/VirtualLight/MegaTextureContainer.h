@@ -8,7 +8,6 @@ namespace Falcor
         using SharedPtr = std::shared_ptr<MegaTextureContainer>;
         static SharedPtr create(uint32_t capacity, uint perItemSize);
         void setShaderData(const ShaderVar& var) const;
-        Shader::DefineList getDefineList() const;
 
     private:
         MegaTextureContainer(uint32_t capacity, uint perItemSize);
