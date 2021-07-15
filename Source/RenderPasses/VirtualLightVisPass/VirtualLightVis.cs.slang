@@ -26,10 +26,11 @@ cbuffer CB
     0: Uniform Solid Circle Mode
     1: Adaptive Solid Circle Mode
     2: Ring Mode
-    3: Hemisphere Mode
-    4: Hemisphere Radiance Mode
+    3: Estimation Heat Map
+    4: Hemisphere Mode
+    5: Hemisphere Radiance Mode
     */
-    int gVisMode;
+    uint gVisType;
 };
 
 Texture2D<float4> gPos;
@@ -45,7 +46,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
 
     gOutput[launchIndex.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
     
-    if (gVisMode >= 0 && gVisMode <= 2)
+    if (gVisType >= 0 && gVisType <= 3)
     {
         float4 gPosVal  = gPos[launchIndex.xy];
         float3 posW     = gPosVal.xyz;
@@ -67,6 +68,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                 0xff, // InstanceInclusionMask
                 dummyRay);
 
+            uint hitCount = 0;
             while (rayQuery.Proceed())
             {
                 if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
@@ -77,8 +79,11 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                     float radius = 0.5f * (boundingBox.maxPoint.x - boundingBox.minPoint.x);
                     float3 origin = posW;
                     float dis = sqrt(dot(origin - vplOrigin, origin - vplOrigin));
-
-                    if (gVisMode == 0)
+                    if (dis <= radius)
+                    {
+                        hitCount += 1;
+                    }
+                    if (gVisType == 0)
                     {
                         if (dis < gRadius)
                         {
@@ -87,7 +92,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                             return;
                         }
                     }
-                    else if (gVisMode == 1)
+                    else if (gVisType == 1)
                     {
                         if (dis <= radius)
                         {
@@ -96,7 +101,7 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                             return;
                         }
                     }
-                    else if (gVisMode == 2)
+                    else if (gVisType == 2)
                     {
                         if (dis <= radius && dis >= (radius - 0.001f))
                         {
@@ -105,6 +110,18 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                             return;
                         }
                     }
+                }
+            }
+
+            if (gVisType == 3)
+            {
+                if (hitCount >= 10)
+                {
+                    gOutput[launchIndex.xy] = float4(0.5f, 0.5f, 0.5f, 1.0f);
+                }
+                else
+                {
+                    gOutput[launchIndex.xy] = float4(hitCount / 32.0, 0.0f, 0.0f, 1.0f);
                 }
             }
         }

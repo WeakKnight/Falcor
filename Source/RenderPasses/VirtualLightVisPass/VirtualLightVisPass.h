@@ -61,4 +61,5 @@ private:
     ComputePass::SharedPtr  mpComputePass;
     float mRadius = 0.004;
     uint mVisMode = 0;
+    uint mVisType = 0;
 };

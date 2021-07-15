@@ -34,7 +34,8 @@ namespace
     const char kDesc[] = "Insert pass description here";
     const char kRadius[] = "radius";
     const char kVisMode[] = "visMode";
-    
+    const char kVisType[] = "visType";
+
     const char kPosChannel[] = "pos";
     const char kOutputChannel[] = "output";
 
@@ -67,7 +68,12 @@ VirtualLightVisPass::SharedPtr VirtualLightVisPass::create(RenderContext* pRende
         {
             pPass->mVisMode = value;
         }
+        else if (key == kVisType)
+        {
+            pPass->mVisType = value;
+        }
     }
+
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
 
     Program::Desc desc;
@@ -87,6 +93,7 @@ Dictionary VirtualLightVisPass::getScriptingDictionary()
     Dictionary d;
     d[kRadius] = mRadius;
     d[kVisMode] = mVisMode;
+    d[kVisType] = mVisType;
     return d;
 }
 
@@ -138,6 +145,7 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
     cb["gViewportDims"] = uint2(pDst->getWidth(), pDst->getHeight());
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRadius"] = mRadius;
+    cb["gVisType"] = mVisType;
     seletedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
     mpComputePass["gPos"] = pPos;
     mpComputePass["gOutput"] = pDst;
@@ -152,6 +160,13 @@ void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
     visModes.push_back({ 1, "Initial Samples" });
     visModes.push_back({ 2, "Sample Eliminated Samples" });
     widget.dropdown("Vis Mode", visModes, mVisMode);
+
+    Gui::DropdownList visTypes;
+    visTypes.push_back({ 0, "Uniform Solid Circle" });
+    visTypes.push_back({ 1, "Adaptive Solid Circle" });
+    visTypes.push_back({ 2, "Ring" });
+    visTypes.push_back({ 3, "Estimation Heat Map" });
+    widget.dropdown("Vis Type", visTypes, mVisType);
 }
 
 void VirtualLightVisPass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
