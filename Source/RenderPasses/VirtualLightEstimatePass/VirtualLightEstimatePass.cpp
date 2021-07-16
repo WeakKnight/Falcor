@@ -117,7 +117,7 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         return;
     }
 
-    if (mpRadianceContainer == nullptr)
+    if (mpSpecularRadianceContainer == nullptr)
     {
         const uint capacity = 200000;
         if (sampleEliminatedVirtualLights->getCount() > capacity)
@@ -126,7 +126,7 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
             logError("exceed radiance container's maximum size");
             return;
         }
-        mpRadianceContainer = MegaTextureContainer::create(capacity, 8);
+        mpSpecularRadianceContainer = MegaTextureContainer::create(capacity, 8);
     }
 
     /*
@@ -148,7 +148,7 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
     ShaderVar cb = mpComputePass["CB"];
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     sampleEliminatedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
-    mpRadianceContainer->setShaderData(cb["gRadianceContainer"]);
+    mpSpecularRadianceContainer->setShaderData(cb["gSpecRadianceContainer"]);
     mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
     mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
 

@@ -25,27 +25,30 @@ cbuffer CB
 {
     uint gFrameIndex;
     VirtualLightContainer gVirtualLightContainer;
-    MegaTextureContainer gRadianceContainer;
+    MegaTextureContainer gSpecRadianceContainer;
     AliasTable gEmissiveTriTable;
 };
+
+RWStructuredBuffer<float3> gDiffuseRadianceBuffer;
+RWByteAddressBuffer gFluxBuffer;
 
 float3 cosineWeightedSampling(float2 XY, float3 N)
 {
     float3 w = N;
-    float3 u = 0.0;
-    if (abs(w.x) > 0.1)
+    float3 u = 0.0f;
+    if (abs(w.x) > 0.1f)
     {
-        u = normalize(cross(float3(0.0, 1.0, 0.0), w));
+        u = normalize(cross(float3(0.0f, 1.0f, 0.0f), w));
     }
     else
     {
-        u = normalize(cross(float3(1.0, 0.0, 0.0), w));
+        u = normalize(cross(float3(1.0f, 0.0f, 0.0f), w));
     }
     float3 v = cross(w, u);
-    float r1 = 2.0 * M_PI * XY.x;
+    float r1 = 2.0f * M_PI * XY.x;
     float r2 = XY.y;
     float r2s = sqrt(r2);
-    float3 dir = normalize((u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0 - r2)));
+    float3 dir = normalize((u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0f - r2)));
 
     return dir;
 }
@@ -78,21 +81,80 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
     for (int bounce = 0; bounce < 4; bounce++)
     {
         ShadingData sd;
-        bool hit = traceScene(rayOrigin, rayDir, sd);
-        
+        if (!traceScene(rayOrigin, rayDir, sd))
+        {
+            break;
+        }
+
         RayDesc searchRay;
         searchRay.Origin = sd.posW;
-        searchRay.Direction = float3(0.0, 1.0, 0.0);
+        searchRay.Direction = float3(0.0f, 1.0f, 0.0f);
         searchRay.TMin = 0.0f;
         searchRay.TMax = 0.00001f;
-        RayQuery<RAY_FLAG_NONE> searchRayQuery;
+        RayQuery<RAY_FLAG_NONE> rayQuery;
 
         /*
-        if intersect more than 5 times, clamp
+        if intersect more than 8 times, clamp
         */
-        int intersectIndicis[5] = {-1, -1, -1, -1, -1};
-        searchRayQuery.TraceRayInline(gVirtualLightContainer.as, RAY_FLAG_NONE, 0xff, searchRay);
+        int intersectIndicis[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+        int intersectPtr = 0;
+        rayQuery.TraceRayInline(gVirtualLightContainer.as, RAY_FLAG_NONE, 0xff, searchRay);
+        float maxDisSquare = 0.0f;
+        while (rayQuery.Proceed())
+        {
+            if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
+            {
+                uint index = rayQuery.CandidatePrimitiveIndex();
+                float3 posW = gVirtualLightContainer.getPosition(index);
+                float radius = gVirtualLightContainer.getRadius(index);
+                float disSquare = dot(sd.posW - posW, sd.posW - posW);
+                if(disSquare <= radius * radius)
+                {
+                    ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
+                    if(dot(sd.N, virtualLightSd.N) > 0.65f)
+                    {
+                        intersectIndicis[intersectPtr] = index;
+                        intersectPtr++;
+                        maxDisSquare = max(maxDisSquare, disSquare);
+                    }
+                }
+            }
 
-        
+            if (intersectPtr >= 8)
+            {
+                rayQuery.Abort();
+            }
+        }
+
+        /*
+        Compute Total Weight
+        */
+        float weightSum = 0.0f;
+        for (uint i = 0; i < 8; i++)
+        {
+            uint index = intersectIndicis[i];
+            if (index == -1)
+            {
+                break;
+            }
+            float3 posW = gVirtualLightContainer.getPosition(index);
+            float disSquare = dot(sd.posW - posW, sd.posW - posW);
+            weightSum = weightSum + 1.0f - disSquare / (maxDisSquare + 0.001f);
+        }
+
+        /*
+        Do Radiance Transfer
+        */
+        for (uint i = 0; i < 8; i++)
+        {
+            uint index = intersectIndicis[i];
+            if (index == -1)
+            {
+                break;
+            }
+            float3 posW = gVirtualLightContainer.getPosition(index);
+            float disSquare = dot(sd.posW - posW, sd.posW - posW);
+            float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
+        }
     }
 }

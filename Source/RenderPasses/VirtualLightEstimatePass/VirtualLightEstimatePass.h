@@ -59,6 +59,6 @@ private:
     Scene::SharedPtr mpScene;
     ComputePass::SharedPtr  mpComputePass;
     SampleGenerator::SharedPtr mpSampleGenerator;
-    MegaTextureContainer::SharedPtr mpRadianceContainer;
+    MegaTextureContainer::SharedPtr mpSpecularRadianceContainer;
     AliasTable::SharedPtr   mpEmissiveTriTable;
 };
