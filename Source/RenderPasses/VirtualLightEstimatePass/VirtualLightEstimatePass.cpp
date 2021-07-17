@@ -145,6 +145,16 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         mpEmissiveTriTable = AliasTable::create(weights, rng);
     }
 
+    if (mpFluxBuffer == nullptr)
+    {
+        mpFluxBuffer = Buffer::createStructured(sizeof(float), sampleEliminatedVirtualLights->getCount());
+    }
+
+    if (mpDiffuseRadianceBuffer == nullptr)
+    {
+        mpDiffuseRadianceBuffer = Buffer::createStructured(sizeof(float3), sampleEliminatedVirtualLights->getCount());
+    }
+
     ShaderVar cb = mpComputePass["CB"];
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     sampleEliminatedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
@@ -152,6 +162,8 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
     mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
     mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
 
+    mpComputePass["gDiffuseRadianceBuffer"] = mpFluxBuffer;
+    mpComputePass["gFluxBuffer"] = mpDiffuseRadianceBuffer;
     mpComputePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
 }
 
