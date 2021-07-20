@@ -162,8 +162,9 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
     mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
     mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
 
-    mpComputePass["gDiffuseRadianceBuffer"] = mpFluxBuffer;
-    mpComputePass["gFluxBuffer"] = mpDiffuseRadianceBuffer;
+    mpComputePass["gFluxBuffer"] = mpFluxBuffer;
+    mpComputePass["gDiffuseRadianceBuffer"] = mpDiffuseRadianceBuffer;
+    
     mpComputePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
 }
 

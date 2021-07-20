@@ -29,8 +29,8 @@ cbuffer CB
     AliasTable gEmissiveTriTable;
 };
 
-RWByteAddressBuffer gDiffuseRadianceBuffer;
 RWByteAddressBuffer gFluxBuffer;
+RWByteAddressBuffer gDiffuseRadianceBuffer;
 
 float3 cosineWeightedSampling(float2 XY, float3 N)
 {
@@ -169,6 +169,8 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
             float3 posW = gVirtualLightContainer.getPosition(index);
             float disSquare = dot(sd.posW - posW, sd.posW - posW);
             float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
+
+            ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
         }
     }
 }

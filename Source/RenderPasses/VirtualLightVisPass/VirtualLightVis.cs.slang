@@ -27,8 +27,7 @@ cbuffer CB
     1: Adaptive Solid Circle Mode
     2: Ring Mode
     3: Estimation Heat Map
-    4: Hemisphere Mode
-    5: Hemisphere Radiance Mode
+    4: Adaptive Diffuse Solid Circle Mode
     */
     uint gVisType;
 };
@@ -46,83 +45,98 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
 
     gOutput[launchIndex.xy] = float4(0.0f, 0.0f, 0.0f, 1.0f);
     
-    if (gVisType >= 0 && gVisType <= 3)
+    float4 gPosVal  = gPos[launchIndex.xy];
+    float3 posW     = gPosVal.xyz;
+    float  opacity  = gPosVal.w;
+
+    if (opacity > 0.0f)
     {
-        float4 gPosVal  = gPos[launchIndex.xy];
-        float3 posW     = gPosVal.xyz;
-        float  opacity  = gPosVal.w;
+        RayDesc dummyRay;
+        dummyRay.Origin = posW;
+        dummyRay.Direction = float3(0.0, 1.0, 0.0);
+        dummyRay.TMin = 0.0f;
+        dummyRay.TMax = 0.0000001f;
 
-        if (opacity > 0.0f)
+        RayQuery<RAY_FLAG_NONE> rayQuery;
+
+        rayQuery.TraceRayInline(
+            gVirtualLightContainer.as,
+            RAY_FLAG_NONE, // OR'd with template flags above
+            0xff, // InstanceInclusionMask
+            dummyRay);
+
+        uint hitCount = 0;
+        while (rayQuery.Proceed())
         {
-            RayDesc dummyRay;
-            dummyRay.Origin = posW;
-            dummyRay.Direction = float3(0.0, 1.0, 0.0);
-            dummyRay.TMin = 0.0f;
-            dummyRay.TMax = 0.0000001f;
-
-            RayQuery<RAY_FLAG_NONE> rayQuery;
-
-            rayQuery.TraceRayInline(
-                gVirtualLightContainer.as,
-                RAY_FLAG_NONE, // OR'd with template flags above
-                0xff, // InstanceInclusionMask
-                dummyRay);
-
-            uint hitCount = 0;
-            while (rayQuery.Proceed())
+            if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
             {
-                if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
+                uint AABBIndex = rayQuery.CandidatePrimitiveIndex();
+                PackedBoundingBox boundingBox = gVirtualLightContainer.boundingBoxBuffer[AABBIndex];
+                float3 vplOrigin = (boundingBox.minPoint + boundingBox.maxPoint) * 0.5f;
+                float radius = 0.5f * (boundingBox.maxPoint.x - boundingBox.minPoint.x);
+                float3 origin = posW;
+                float dis = sqrt(dot(origin - vplOrigin, origin - vplOrigin));
+                if (dis <= radius)
                 {
-                    uint AABBIndex = rayQuery.CandidatePrimitiveIndex();
-                    PackedBoundingBox boundingBox = gVirtualLightContainer.boundingBoxBuffer[AABBIndex];
-                    float3 vplOrigin = (boundingBox.minPoint + boundingBox.maxPoint) * 0.5f;
-                    float radius = 0.5f * (boundingBox.maxPoint.x - boundingBox.minPoint.x);
-                    float3 origin = posW;
-                    float dis = sqrt(dot(origin - vplOrigin, origin - vplOrigin));
+                    hitCount += 1;
+                }
+                if (gVisType == 0)
+                {
+                    if (dis < gRadius)
+                    {
+                        gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                        rayQuery.Abort();
+                        return;
+                    }
+                }
+                else if (gVisType == 1)
+                {
                     if (dis <= radius)
                     {
-                        hitCount += 1;
+                        gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                        rayQuery.Abort();
+                        return;
                     }
-                    if (gVisType == 0)
+                }
+                else if (gVisType == 2)
+                {
+                    if (dis <= radius && dis >= (radius - 0.001f))
                     {
-                        if (dis < gRadius)
-                        {
-                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
-                            rayQuery.Abort();
-                            return;
-                        }
+                        gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
+                        rayQuery.Abort();
+                        return;
                     }
-                    else if (gVisType == 1)
+                }
+                else if (gVisType == 4)
+                {
+                    if (dis <= radius)
                     {
-                        if (dis <= radius)
+                        HitInfo hitInfo;
+                        bool res = hitInfo.decode(gVirtualLightContainer.hitInfoBuffer[AABBIndex]);
+                        if (res)
                         {
-                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
-                            rayQuery.Abort();
-                            return;
+                            gOutput[launchIndex.xy] = float4(hitInfo.barycentrics, 1.0 - hitInfo.barycentrics.x - hitInfo.barycentrics.y, 1.0);
                         }
-                    }
-                    else if (gVisType == 2)
-                    {
-                        if (dis <= radius && dis >= (radius - 0.001f))
-                        {
-                            gOutput[launchIndex.xy] = float4(1.0f, 1.0f, 1.0f, 1.0f);
-                            rayQuery.Abort();
-                            return;
-                        }
+                        // ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(AABBIndex);
+                        // // float2 rg = abs(sin(gVirtualLightContainer.hitInfoBuffer[AABBIndex].xy * 1.717));
+                        // // gOutput[launchIndex.xy] = float4(rg, 0.0, 1.0f);
+                        // gOutput[launchIndex.xy] = float4(virtualLightSd.diffuse, 1.0f);
+                        rayQuery.Abort();
+                        return;
                     }
                 }
             }
+        }
 
-            if (gVisType == 3)
+        if (gVisType == 3)
+        {
+            if (hitCount >= 10)
             {
-                if (hitCount >= 10)
-                {
-                    gOutput[launchIndex.xy] = float4(0.5f, 0.5f, 0.5f, 1.0f);
-                }
-                else
-                {
-                    gOutput[launchIndex.xy] = float4(hitCount / 32.0, 0.0f, 0.0f, 1.0f);
-                }
+                gOutput[launchIndex.xy] = float4(0.5f, 0.5f, 0.5f, 1.0f);
+            }
+            else
+            {
+                gOutput[launchIndex.xy] = float4(hitCount / 32.0, 0.0f, 0.0f, 1.0f);
             }
         }
     }

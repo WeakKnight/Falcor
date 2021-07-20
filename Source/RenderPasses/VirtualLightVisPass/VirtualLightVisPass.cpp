@@ -166,6 +166,8 @@ void VirtualLightVisPass::renderUI(Gui::Widgets& widget)
     visTypes.push_back({ 1, "Adaptive Solid Circle" });
     visTypes.push_back({ 2, "Ring" });
     visTypes.push_back({ 3, "Estimation Heat Map" });
+    visTypes.push_back({ 4, "Adaptive Diffuse Solid Circle" });
+    
     widget.dropdown("Vis Type", visTypes, mVisType);
 }
 
