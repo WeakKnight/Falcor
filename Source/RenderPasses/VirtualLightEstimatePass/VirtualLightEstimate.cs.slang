@@ -29,7 +29,7 @@ cbuffer CB
     AliasTable gEmissiveTriTable;
 };
 
-RWStructuredBuffer<float3> gDiffuseRadianceBuffer;
+RWByteAddressBuffer gDiffuseRadianceBuffer;
 RWByteAddressBuffer gFluxBuffer;
 
 float3 cosineWeightedSampling(float2 XY, float3 N)
@@ -47,10 +47,24 @@ float3 cosineWeightedSampling(float2 XY, float3 N)
     float3 v = cross(w, u);
     float r1 = 2.0f * M_PI * XY.x;
     float r2 = XY.y;
-    float r2s = sqrt(r2);
+    float r2s = sqrt(r2);                                                                                                       
     float3 dir = normalize((u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0f - r2)));
 
     return dir;
+}
+
+void interlockAddDiffuseRadiance(uint index, float3 radiance)
+{
+    uint address = index * 12u;
+    NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 0, radiance.r);
+    NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 4, radiance.g);
+    NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 8, radiance.b);
+}
+
+void interlockAddFlux(uint index, float flux)
+{
+    uint address = index * 4u;
+    NvInterlockedAddFp32(gFluxBuffer, address, flux);
 }
 
 [numthreads(256, 1, 1)]
