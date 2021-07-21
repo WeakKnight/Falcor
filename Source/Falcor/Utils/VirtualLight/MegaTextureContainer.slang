@@ -101,6 +101,11 @@ struct MegaTextureContainer
         interlockAddColor(itemIndex, uint2(bottomRight.x, bottomRight.y), colBottomRight);
     }
 
+    void interlockAddColorBiliear(uint itemIndex, float3 dir, float3 color)
+    {
+        interlockAddColorBiliear(itemIndex, sphericalCoordinateToUV(dir), color);
+    }
+
     float3 readColor(uint itemIndex, uint2 uv)
     {
         uint address = itemIndex * perItemStride +  (uv.y * perItemSize + uv.x) * 12u;

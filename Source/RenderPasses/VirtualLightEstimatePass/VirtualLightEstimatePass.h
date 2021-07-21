@@ -56,11 +56,19 @@ private:
 
     uint mPhotonPathCount = 10000;
     uint mTextureItemSize = 8;
+    uint mAccumulatedCount = 0;
+
     Scene::SharedPtr mpScene;
-    ComputePass::SharedPtr  mpComputePass;
+    ComputePass::SharedPtr  mpEstimatePass;
+    ComputePass::SharedPtr  mpAccumulatePass;
     SampleGenerator::SharedPtr mpSampleGenerator;
-    MegaTextureContainer::SharedPtr mpSpecularRadianceContainer;
     AliasTable::SharedPtr mpEmissiveTriTable;
+
+    Buffer::SharedPtr mpCurFluxBuffer;
+    Buffer::SharedPtr mpCurDiffuseRadianceBuffer;
+    MegaTextureContainer::SharedPtr mpCurSpecularRadianceContainer;
+
     Buffer::SharedPtr mpFluxBuffer;
     Buffer::SharedPtr mpDiffuseRadianceBuffer;
+    MegaTextureContainer::SharedPtr mpSpecularRadianceContainer;
 };

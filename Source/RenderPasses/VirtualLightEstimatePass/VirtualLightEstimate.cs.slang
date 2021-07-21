@@ -21,6 +21,9 @@ _PER_FRAME_PATH_COUNT
 _INV_PER_FRAME_PATH_COUNT
 */
 
+const uint kImportanceSampleCount = 4;
+const float kInvImportanceSampleCount = 1.0 / 4.0;
+
 cbuffer CB
 {
     uint gFrameIndex;
@@ -157,6 +160,11 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         }
 
         /*
+        Light Tracing Adoption
+        */
+        float3 L = sd.V;
+
+        /*
         Do Radiance Transfer
         */
         for (uint i = 0; i < 8; i++)
@@ -167,31 +175,51 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                 break;
             }
             float3 posW = gVirtualLightContainer.getPosition(index);
+            float3 vplNormal = gVirtualLightContainer.getNormal(index);
             float disSquare = dot(sd.posW - posW, sd.posW - posW);
             float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
 
             ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
-            float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
-            // Because we do light tracing here, sd.V is actually L dir
-            float3 wi = toLocal(sd.V, vplNormal);
-            for(uint u = 0; u < 8; u++)
-            {
-                for(uint v = 0; v < 8; v++)
-                {
-                    float3 wo = UVToHemisphere(uint2(u, v), gSpecRadianceContainer.stepSize);
-                    float NdotL = dot(sd.N, wi);
-                    if (min(sd.NdotV, NdotL) > kMinCosTheta)
-                    {
-                        float3 H = normalize(wi + wo);
-                        float NdotH = saturate(dot(sd.N, H));
-                        float LdotH = saturate(dot(wi, H));
-                        float NdotV = saturate(dot(sd.N, wo));
-                        NdotL = saturate(NdotL);
-                        float3 specular = evalSpecular(sd, NdotL, NdotV, NdotH, LdotH);
+            virtualLightSd.V = sd.V;
 
-                    }
+            float flux = 0.0;
+            float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
+            interlockAddDiffuseRadiance(index, diffuse);
+            flux += luminance(diffuse);
+            // Because we do light tracing here, sd.V is actually L dir
+            
+            [unroll]
+            for(uint j = 0; j < kImportanceSampleCount; u++)
+            {
+                BSDFSample bsdfSample;
+                sampleSpecular(virtualLightSd, sampleNext2D(sg), bsdfSample);
+                float3 V = bsdfSample.wi;
+                float NdotL = dot(vplNormal, L);
+                if (min(sd.NdotV, NdotL) > kMinCosTheta)
+                {
+                    float3 H = normalize(V + L);
+                    float NdotH = saturate(dot(vplNormal, H));
+                    float LdotH = saturate(dot(L, H));
+                    float NdotV = saturate(dot(vplNormal, V));
+                    NdotL = saturate(NdotL);
+                    float3 specular = weight * kInvImportanceSampleCount * evalSpecular(sd, NdotL, NdotV, NdotH, LdotH) \ bsdfSample.pdf;
+                    gSpecRadianceContainer.interlockAddColorBiliear(index, wo, specular);
+                    flux += luminance(specular);
                 }
             }
+            
+            interlockAddFlux(index, flux);
         }
+
+        /*
+        Continue Tracing
+        */
+        BSDFSample bsdfSample;
+        bool valid = sampleBSDF(sd, sg, bsdfSample);
+        if (!valid)
+        {
+            break;
+        }
+        Le = Le * bsdfSample.weight;
     }
 }

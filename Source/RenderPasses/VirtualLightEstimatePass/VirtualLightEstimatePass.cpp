@@ -75,9 +75,15 @@ VirtualLightEstimatePass::SharedPtr VirtualLightEstimatePass::create(RenderConte
         }
     }
     pPass->mpSampleGenerator = SampleGenerator::create(SAMPLE_GENERATOR_UNIFORM);
-    Program::Desc desc;
-    desc.addShaderLibrary("RenderPasses/VirtualLightEstimatePass/VirtualLightEstimate.cs.slang").csEntry("main").setShaderModel("6_5");
-    pPass->mpComputePass = ComputePass::create(desc, Program::DefineList(), false);
+
+    Program::Desc estimatePassDesc;
+    estimatePassDesc.addShaderLibrary("RenderPasses/VirtualLightEstimatePass/VirtualLightEstimate.cs.slang").csEntry("main").setShaderModel("6_5");
+    pPass->mpEstimatePass = ComputePass::create(estimatePassDesc, Program::DefineList(), false);
+
+    Program::Desc accumulatePassDesc;
+    accumulatePassDesc.addShaderLibrary("RenderPasses/VirtualLightEstimatePass/VirtualLightAccumulate.cs.slang").csEntry("main").setShaderModel("6_5");
+    pPass->mpAccumulatePass = ComputePass::create(accumulatePassDesc, Program::DefineList(), false);
+
     return pPass;
 }
 
@@ -117,18 +123,6 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         return;
     }
 
-    if (mpSpecularRadianceContainer == nullptr)
-    {
-        const uint capacity = 200000;
-        if (sampleEliminatedVirtualLights->getCount() > capacity)
-        {
-            debugBreak(); // should not be nullptr here
-            logError("exceed radiance container's maximum size");
-            return;
-        }
-        mpSpecularRadianceContainer = MegaTextureContainer::create(capacity, 8);
-    }
-
     /*
     Construct Alias Table For Emissive Triangles
     */
@@ -155,17 +149,66 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         mpDiffuseRadianceBuffer = Buffer::createStructured(sizeof(float3), sampleEliminatedVirtualLights->getCount());
     }
 
-    ShaderVar cb = mpComputePass["CB"];
-    cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
-    sampleEliminatedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
-    mpSpecularRadianceContainer->setShaderData(cb["gSpecRadianceContainer"]);
-    mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
-    mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
+    if (mpSpecularRadianceContainer == nullptr)
+    {
+        const uint capacity = 200000;
+        if (sampleEliminatedVirtualLights->getCount() > capacity)
+        {
+            debugBreak(); // should not be nullptr here
+            logError("exceed radiance container's maximum size");
+            return;
+        }
+        mpSpecularRadianceContainer = MegaTextureContainer::create(capacity, 8);
+    }
 
-    mpComputePass["gFluxBuffer"] = mpFluxBuffer;
-    mpComputePass["gDiffuseRadianceBuffer"] = mpDiffuseRadianceBuffer;
-    
-    mpComputePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
+    if (mpCurFluxBuffer == nullptr)
+    {
+        mpCurFluxBuffer = Buffer::createStructured(sizeof(float), sampleEliminatedVirtualLights->getCount());
+    }
+
+    if (mpCurDiffuseRadianceBuffer == nullptr)
+    {
+        mpCurDiffuseRadianceBuffer = Buffer::createStructured(sizeof(float3), sampleEliminatedVirtualLights->getCount());
+    }
+
+    if (mpCurSpecularRadianceContainer == nullptr)
+    {
+        const uint capacity = 200000;
+        if (sampleEliminatedVirtualLights->getCount() > capacity)
+        {
+            debugBreak(); // should not be nullptr here
+            logError("exceed radiance container's maximum size");
+            return;
+        }
+        mpCurSpecularRadianceContainer = MegaTextureContainer::create(capacity, 8);
+    }
+
+    /*
+    Estimate
+    */
+    {
+        ShaderVar cb = mpEstimatePass["CB"];
+        cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
+        sampleEliminatedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
+        mpCurSpecularRadianceContainer->setShaderData(cb["gSpecRadianceContainer"]);
+        mpEmissiveTriTable->setShaderData(cb["gEmissiveTriTable"]);
+        mpScene->setRaytracingShaderData(pRenderContext, mpEstimatePass->getRootVar());
+
+        mpEstimatePass["gFluxBuffer"] = mpCurFluxBuffer;
+        mpEstimatePass["gDiffuseRadianceBuffer"] = mpCurDiffuseRadianceBuffer;
+
+        mpEstimatePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
+    }
+
+    /*
+    Blit
+    */
+    {
+        ShaderVar cb = mpAccumulatePass["CB"];
+        cb["gAccumulatedCount"] = mAccumulatedCount;
+        mpAccumulatePass->execute(pRenderContext, uint3(sampleEliminatedVirtualLights->getCount(), 1, 1));
+        mAccumulatedCount += 1;
+    }
 }
 
 void VirtualLightEstimatePass::renderUI(Gui::Widgets& widget)
@@ -185,8 +228,11 @@ void VirtualLightEstimatePass::setScene(RenderContext* pRenderContext, const Sce
         defines.add("_PER_FRAME_PATH_COUNT", std::to_string(mPhotonPathCount));
         defines.add("_INV_PER_FRAME_PATH_COUNT", std::to_string(1.0f / (float)mPhotonPathCount));
 
-        mpComputePass->getProgram()->addDefines(defines);
-        mpComputePass->setVars(nullptr); // Trigger recompile
+        mpEstimatePass->getProgram()->addDefines(defines);
+        mpEstimatePass->setVars(nullptr); // Trigger recompile
+
+        mpAccumulatePass->getProgram()->addDefines(defines);
+        mpAccumulatePass->setVars(nullptr); // Trigger recompile
     }
 }
 

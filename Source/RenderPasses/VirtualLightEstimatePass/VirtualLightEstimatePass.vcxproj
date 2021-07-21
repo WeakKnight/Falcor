@@ -38,6 +38,9 @@
   <ItemGroup>
     <ShaderSource Include="VirtualLightEstimate.cs.slang" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="VirtualLightAccumulate.cs.slang" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
