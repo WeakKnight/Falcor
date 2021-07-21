@@ -26,6 +26,38 @@ float3 UVToHemisphere(uint2 uvPos, float stepSize)
     return normalize(pPrime * dot(float3(1.0f, 1.0f, 1.0f), abs(pPrime)));
 }
 
+float3 toLocal(float3 v, float3 N)
+{
+    float3 T = 0.0;
+    if (abs(N.x) > 0.1)
+    {
+        T = normalize(cross(float3(0.0, 1.0, 0.0), N));
+    }
+    else
+    {
+        T = normalize(cross(float3(1.0, 0.0, 0.0), N));
+    }
+    float3 B = cross(N, T);
+
+    return float3(dot(v, T), dot(v, B), dot(v, N));
+}
+
+float3 fromLocal(float3 v, float3 N)
+{
+    float3 T = 0.0;
+    if (abs(N.x) > 0.1)
+    {
+        T = normalize(cross(float3(0.0, 1.0, 0.0), N));
+    }
+    else
+    {
+        T = normalize(cross(float3(1.0, 0.0, 0.0), N));
+    }
+    float3 B = cross(N, T);
+
+    return v.x * T + v.y * B + v.z * N;
+}
+
 struct MegaTextureContainer
 {
     uint capacity;

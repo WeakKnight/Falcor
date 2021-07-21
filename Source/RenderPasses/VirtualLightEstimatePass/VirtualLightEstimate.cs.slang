@@ -85,11 +85,11 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
 
     float3 samplePos = emissiveTri.getPosition(barycentric);
     float2 sampleUV = emissiveTri.getTexCoord(barycentric);
-    float3 sampleEmission = gScene.getEmissive(emissiveTri.materialID, sampleUV, gScene.materialResources[emissiveTri.materialID]);
+    float3 Le = gScene.getEmissive(emissiveTri.materialID, sampleUV, gScene.materialResources[emissiveTri.materialID]);
 
     float3 rayDir = cosineWeightedSampling(sampleNext2D(sg), emissiveTri.normal);
     float3 rayOrigin = computeRayOrigin(samplePos, emissiveTri.normal);
-    sampleEmission = sampleEmission / samplePdf * _INV_PER_FRAME_PATH_COUNT * M_PI;
+    Le = Le / samplePdf * _INV_PER_FRAME_PATH_COUNT * M_PI;
 
     [loop]
     for (int bounce = 0; bounce < 4; bounce++)
@@ -171,6 +171,27 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
             float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
 
             ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
+            float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
+            // Because we do light tracing here, sd.V is actually L dir
+            float3 wi = toLocal(sd.V, vplNormal);
+            for(uint u = 0; u < 8; u++)
+            {
+                for(uint v = 0; v < 8; v++)
+                {
+                    float3 wo = UVToHemisphere(uint2(u, v), gSpecRadianceContainer.stepSize);
+                    float NdotL = dot(sd.N, wi);
+                    if (min(sd.NdotV, NdotL) > kMinCosTheta)
+                    {
+                        float3 H = normalize(wi + wo);
+                        float NdotH = saturate(dot(sd.N, H));
+                        float LdotH = saturate(dot(wi, H));
+                        float NdotV = saturate(dot(sd.N, wo));
+                        NdotL = saturate(NdotL);
+                        float3 specular = evalSpecular(sd, NdotL, NdotV, NdotH, LdotH);
+
+                    }
+                }
+            }
         }
     }
 }
