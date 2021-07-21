@@ -111,16 +111,8 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                 {
                     if (dis <= radius)
                     {
-                        HitInfo hitInfo;
-                        bool res = hitInfo.decode(gVirtualLightContainer.hitInfoBuffer[AABBIndex]);
-                        if (res)
-                        {
-                            gOutput[launchIndex.xy] = float4(hitInfo.barycentrics, 1.0 - hitInfo.barycentrics.x - hitInfo.barycentrics.y, 1.0);
-                        }
-                        // ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(AABBIndex);
-                        // // float2 rg = abs(sin(gVirtualLightContainer.hitInfoBuffer[AABBIndex].xy * 1.717));
-                        // // gOutput[launchIndex.xy] = float4(rg, 0.0, 1.0f);
-                        // gOutput[launchIndex.xy] = float4(virtualLightSd.diffuse, 1.0f);
+                        ShadingData sd = gVirtualLightContainer.getShadingData(AABBIndex);
+                        gOutput[launchIndex.xy] = float4(sd.diffuse + sd.specular, 1.0);
                         rayQuery.Abort();
                         return;
                     }

@@ -7,7 +7,7 @@ import Utils.Helpers;
 import Utils.Math.PackedFormats;
 import Utils.Math.MathHelpers;
 
-bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd, out HitInfo hit)
+bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd)
 {
     RayDesc ray;
 	ray.Origin = rayOrigin;
@@ -28,7 +28,7 @@ bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd, out HitInfo
         if (rayQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
         {
             // Alpha test for non-opaque geometry.
-            hit = getCandidateTriangleHit(rayQuery);
+            HitInfo hit = getCandidateTriangleHit(rayQuery);
             VertexData v = gScene.getVertexData(hit);
             uint materialID = gScene.getMaterialID(hit.instanceID);
 
@@ -43,7 +43,7 @@ bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd, out HitInfo
 
     if(rayQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
     {
-        hit = getCommittedTriangleHit(rayQuery);
+        HitInfo hit = getCommittedTriangleHit(rayQuery);
 
         uint meshInstanceID = hit.instanceID;
         uint materialID = gScene.getMaterialID(meshInstanceID);
@@ -57,8 +57,48 @@ bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd, out HitInfo
     return false;
 }
 
-bool traceScene(float3 rayOrigin, float3 rayDir, out ShadingData sd)
+bool traceScene(float3 rayOrigin, float3 rayDir, out VertexData v, out uint meshInstanceID)
 {
-    HitInfo hit;
-    return traceScene(rayOrigin, rayDir, sd, hit);
+    RayDesc ray;
+	ray.Origin = rayOrigin;
+	ray.Direction = rayDir;
+	ray.TMin = 0.0f;
+	ray.TMax = 1.0e38f;
+
+    RayQuery<RAY_FLAG_NONE> rayQuery;
+
+    rayQuery.TraceRayInline(
+        gRtScene,
+        RAY_FLAG_NONE,
+        0xff,
+        ray);
+
+    while (rayQuery.Proceed())
+    {
+        if (rayQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            // Alpha test for non-opaque geometry.
+            HitInfo hit = getCandidateTriangleHit(rayQuery);
+            VertexData v = gScene.getVertexData(hit);
+            uint materialID = gScene.getMaterialID(hit.instanceID);
+
+            if (alphaTest(v, gScene.materials[materialID], gScene.materialResources[materialID], 0.f)) 
+            {
+                continue;
+            }
+
+            rayQuery.CommitNonOpaqueTriangleHit();
+        }
+    }
+
+    if(rayQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    {
+        HitInfo hit = getCommittedTriangleHit(rayQuery);
+        meshInstanceID = hit.instanceID;
+        float3 barycentrics = float3(1.f - hit.barycentrics.x - hit.barycentrics.y, hit.barycentrics.x, hit.barycentrics.y);
+        v = gScene.getVertexData(hit.instanceID, hit.primitiveIndex, barycentrics);
+        return true;
+    }
+
+    return false;
 }

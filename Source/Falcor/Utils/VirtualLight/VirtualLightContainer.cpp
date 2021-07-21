@@ -11,7 +11,10 @@ namespace Falcor
     void VirtualLightContainer::setShaderData(const ShaderVar& var) const
     {
         var["positionBuffer"] = mpPositionBuffer;
-        var["hitInfoBuffer"] = mpHitInfoBuffer;
+        var["normalBuffer"] = mpNormalBuffer;
+        var["faceNormalBuffer"] = mpFaceNormalBuffer;
+        var["texC"] = mpTexCoordBuffer;
+        var["instanceIdBuffer"] = mpInstanceIdBuffer;
         var["boundingBoxBuffer"] = mpBoundBoxBuffer;
         if (mHaveAS)
         {
@@ -57,7 +60,10 @@ namespace Falcor
         mBoundingBoxRadius(boundingBoxRadius)
     {
         mpPositionBuffer = Buffer::createStructured(sizeof(float3), mCapacity);
-        mpHitInfoBuffer = Buffer::createStructured(sizeof(uint2), mCapacity);
+        mpNormalBuffer = Buffer::createStructured(sizeof(uint), mCapacity);;
+        mpFaceNormalBuffer = Buffer::createStructured(sizeof(uint), mCapacity);;
+        mpTexCoordBuffer = Buffer::createStructured(sizeof(uint), mCapacity);;
+        mpInstanceIdBuffer = Buffer::createStructured(sizeof(uint), mCapacity);;
         mpBoundBoxBuffer = Buffer::createStructured(sizeof(float) * 8, mCapacity);
 
         mpAccelerationStructureBuilder = BoundingBoxAccelerationStructureBuilder::Create(mpBoundBoxBuffer);

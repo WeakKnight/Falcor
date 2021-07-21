@@ -146,6 +146,7 @@ void VirtualLightVisPass::execute(RenderContext* pRenderContext, const RenderDat
     cb["gFrameIndex"] = gpFramework->getGlobalClock().getFrame();
     cb["gRadius"] = mRadius;
     cb["gVisType"] = mVisType;
+    mpScene->setRaytracingShaderData(pRenderContext, mpComputePass->getRootVar());
     seletedVirtualLights->setShaderData(cb["gVirtualLightContainer"]);
     mpComputePass["gPos"] = pPos;
     mpComputePass["gOutput"] = pDst;

@@ -32,5 +32,8 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
     gSampleEliminatedVirtualLights.boundingBoxBuffer[eliminatedVPLIndex].maxPoint = posW + radius;
 
     uint originIndex = gIndices[eliminatedVPLIndex];
-    gSampleEliminatedVirtualLights.hitInfoBuffer[eliminatedVPLIndex] = gInitialVirtualLights.getHitInfo(originIndex);
+    gSampleEliminatedVirtualLights.setNormal(eliminatedVPLIndex, gInitialVirtualLights.getNormal(originIndex));
+    gSampleEliminatedVirtualLights.setFaceNormal(eliminatedVPLIndex, gInitialVirtualLights.getFaceNormal(originIndex));
+    gSampleEliminatedVirtualLights.setTexC(eliminatedVPLIndex, gInitialVirtualLights.getTexC(originIndex));
+    gSampleEliminatedVirtualLights.setInstanceId(eliminatedVPLIndex, gInitialVirtualLights.getInstanceId(originIndex));
 }

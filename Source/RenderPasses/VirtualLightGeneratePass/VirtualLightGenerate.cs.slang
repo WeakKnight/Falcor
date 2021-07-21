@@ -43,11 +43,12 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         {
             float3 offsetPos = computeRayOrigin(sd.posW, sd.faceN);
             ShadingData sdNext;
-            HitInfo hitInfo;
-            hit = traceScene(offsetPos, result.wi, sdNext, hitInfo);
+            VertexData v;
+            uint instanceId;
+            hit = traceScene(offsetPos, result.wi, v, instanceId);
             if (hit)
             {
-                gVirtualLightContainer.pushLight(sdNext.posW, hitInfo);
+                gVirtualLightContainer.pushLight(v, instanceId);
             }
         }
     }

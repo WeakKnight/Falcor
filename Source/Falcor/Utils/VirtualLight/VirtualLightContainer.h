@@ -25,7 +25,11 @@ namespace Falcor
         float mBoundingBoxRadius;
         bool mHaveAS = false;
         Buffer::SharedPtr mpPositionBuffer;
-        Buffer::SharedPtr mpHitInfoBuffer;
+        Buffer::SharedPtr mpNormalBuffer;
+        Buffer::SharedPtr mpFaceNormalBuffer;
+        Buffer::SharedPtr mpTexCoordBuffer;
+        Buffer::SharedPtr mpInstanceIdBuffer;
+
         Buffer::SharedPtr mpBoundBoxBuffer;
         BoundingBoxAccelerationStructureBuilder::SharedPtr mpAccelerationStructureBuilder;
     };
