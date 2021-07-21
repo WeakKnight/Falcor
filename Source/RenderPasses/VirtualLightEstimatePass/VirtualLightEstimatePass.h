@@ -54,7 +54,7 @@ public:
 private:
     VirtualLightEstimatePass() = default;
 
-    uint mPhotonPathCount = 10000;
+    uint mPhotonPathCount = 5000;
     uint mTextureItemSize = 8;
     uint mAccumulatedCount = 0;
 

@@ -14,6 +14,7 @@ import Scene.RaytracingInlineHelper;
 import Utils.VirtualLight.VirtualLightContainer;
 import Utils.VirtualLight.MegaTextureContainer;
 import Utils.Sampling.AliasTable;
+import Experimental.Scene.Material.MaterialShading;
 
 /*
 Macros:
@@ -21,8 +22,9 @@ _PER_FRAME_PATH_COUNT
 _INV_PER_FRAME_PATH_COUNT
 */
 
-const uint kImportanceSampleCount = 4;
-const float kInvImportanceSampleCount = 1.0 / 4.0;
+static const uint kImportanceSampleCount = 4;
+static const float kInvImportanceSampleCount = 1.0 / 4.0;
+static const uint kInvalidIndex = 99999999u;
 
 cbuffer CB
 {
@@ -30,10 +32,10 @@ cbuffer CB
     VirtualLightContainer gVirtualLightContainer;
     MegaTextureContainer gSpecRadianceContainer;
     AliasTable gEmissiveTriTable;
+    RWByteAddressBuffer gDiffuseRadianceBuffer;
 };
 
 RWByteAddressBuffer gFluxBuffer;
-RWByteAddressBuffer gDiffuseRadianceBuffer;
 
 float3 cosineWeightedSampling(float2 XY, float3 N)
 {
@@ -56,7 +58,7 @@ float3 cosineWeightedSampling(float2 XY, float3 N)
     return dir;
 }
 
-void interlockAddDiffuseRadiance(uint index, float3 radiance)
+inline void interlockAddDiffuseRadiance(uint index, float3 radiance)
 {
     uint address = index * 12u;
     NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 0, radiance.r);
@@ -78,6 +80,8 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         return;
     }
 
+    // interlockAddDiffuseRadiance(0, float3(1.0, 1.0, 1.0));
+    // gDiffuseRadianceBuffer.Store(0, asuint(1.0));
     SampleGenerator sg = SampleGenerator.create(uint2(launchIndex.x, 1), gFrameIndex);
     uint triIndex = gEmissiveTriTable.sample(sampleNext2D(sg));
     float triPdf = gEmissiveTriTable.getWeight(triIndex) / gEmissiveTriTable.weightSum;
@@ -113,12 +117,16 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         /*
         if intersect more than 8 times, clamp
         */
-        int intersectIndicis[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
-        int intersectPtr = 0;
+        uint intersectIndicis[8] = {kInvalidIndex, kInvalidIndex, kInvalidIndex, kInvalidIndex, kInvalidIndex, kInvalidIndex, kInvalidIndex, kInvalidIndex};
         rayQuery.TraceRayInline(gVirtualLightContainer.as, RAY_FLAG_NONE, 0xff, searchRay);
         float maxDisSquare = 0.0f;
-        while (rayQuery.Proceed())
+        for (uint i = 0; i < 8; i++)
         {
+            if(!rayQuery.Proceed())
+            {
+                break;
+            }
+        
             if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
             {
                 uint index = rayQuery.CandidatePrimitiveIndex();
@@ -130,16 +138,10 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                     ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
                     if(dot(sd.N, virtualLightSd.N) > 0.65f)
                     {
-                        intersectIndicis[intersectPtr] = index;
-                        intersectPtr++;
+                        intersectIndicis[i] = index;
                         maxDisSquare = max(maxDisSquare, disSquare);
                     }
                 }
-            }
-
-            if (intersectPtr >= 8)
-            {
-                rayQuery.Abort();
             }
         }
 
@@ -150,76 +152,81 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         for (uint i = 0; i < 8; i++)
         {
             uint index = intersectIndicis[i];
-            if (index == -1)
+            if (index == kInvalidIndex)
             {
-                break;
+                continue;
             }
             float3 posW = gVirtualLightContainer.getPosition(index);
             float disSquare = dot(sd.posW - posW, sd.posW - posW);
             weightSum = weightSum + 1.0f - disSquare / (maxDisSquare + 0.001f);
         }
 
-        /*
-        Light Tracing Adoption
-        */
+        // /*
+        // Light Tracing Adoption
+        // */
         float3 L = sd.V;
 
-        /*
-        Do Radiance Transfer
-        */
+        // /*
+        // Do Radiance Transfer
+        // */
         for (uint i = 0; i < 8; i++)
         {
-            uint index = intersectIndicis[i];
-            if (index == -1)
-            {
-                break;
-            }
-            float3 posW = gVirtualLightContainer.getPosition(index);
-            float3 vplNormal = gVirtualLightContainer.getNormal(index);
-            float disSquare = dot(sd.posW - posW, sd.posW - posW);
-            float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
+            uint lightIndex = 0; //intersectIndicis[i];
+            // if (lightIndex == kInvalidIndex)
+            // {
+            //     continue;
+            //     // break;
+            // }
+            gDiffuseRadianceBuffer.Store(lightIndex, asuint(1.0));
+            // float3 posW = gVirtualLightContainer.getPosition(lightIndex);
+            // float3 vplNormal = gVirtualLightContainer.getNormal(lightIndex);
+            // float disSquare = dot(sd.posW - posW, sd.posW - posW);
+            // float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
 
-            ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
-            virtualLightSd.V = sd.V;
+            // ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(lightIndex);
+            // virtualLightSd.V = sd.V;
 
-            float flux = 0.0;
-            float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
-            interlockAddDiffuseRadiance(index, diffuse);
-            flux += luminance(diffuse);
-            // Because we do light tracing here, sd.V is actually L dir
+            // float flux = 0.0;
+            // float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
+            // uint address = lightIndex * 12u;
+            // gDiffuseRadianceBuffer.Store(0, asuint(1.0));
+            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 0u, diffuse.r);
+            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 4u, diffuse.g);
+            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 8u, diffuse.b);
+            // interlockAddDiffuseRadiance(index, diffuse);
+            // flux += luminance(diffuse);
             
-            [unroll]
-            for(uint j = 0; j < kImportanceSampleCount; u++)
-            {
-                BSDFSample bsdfSample;
-                sampleSpecular(virtualLightSd, sampleNext2D(sg), bsdfSample);
-                float3 V = bsdfSample.wi;
-                float NdotL = dot(vplNormal, L);
-                if (min(sd.NdotV, NdotL) > kMinCosTheta)
-                {
-                    float3 H = normalize(V + L);
-                    float NdotH = saturate(dot(vplNormal, H));
-                    float LdotH = saturate(dot(L, H));
-                    float NdotV = saturate(dot(vplNormal, V));
-                    NdotL = saturate(NdotL);
-                    float3 specular = weight * kInvImportanceSampleCount * evalSpecular(sd, NdotL, NdotV, NdotH, LdotH) \ bsdfSample.pdf;
-                    gSpecRadianceContainer.interlockAddColorBiliear(index, wo, specular);
-                    flux += luminance(specular);
-                }
-            }
+            // for(uint j = 0; j < kImportanceSampleCount; j++)
+            // {
+            //     BSDFSample bsdfSample;
+            //     sampleSpecular(virtualLightSd, sampleNext2D(sg), bsdfSample);
+            //     float3 V = bsdfSample.wi;
+            //     float NdotL = dot(vplNormal, L);
+            //     if (min(sd.NdotV, NdotL) > kMinCosTheta)
+            //     {
+            //         float3 H = normalize(V + L);
+            //         float NdotH = saturate(dot(vplNormal, H));
+            //         float LdotH = saturate(dot(L, H));
+            //         float NdotV = saturate(dot(vplNormal, V));
+            //         NdotL = saturate(NdotL);
+            //         float3 specular = weight * kInvImportanceSampleCount * evalSpecular(sd, NdotL, NdotV, NdotH, LdotH) / bsdfSample.pdf;
+            //         gSpecRadianceContainer.interlockAddColorBiliear(index, toLocal(V, vplNormal), specular);
+            //         flux += luminance(specular);
+            //     }
+            // }
             
-            interlockAddFlux(index, flux);
+            // interlockAddFlux(index, flux);
         }
 
-        /*
-        Continue Tracing
-        */
-        BSDFSample bsdfSample;
-        bool valid = sampleBSDF(sd, sg, bsdfSample);
-        if (!valid)
-        {
-            break;
-        }
-        Le = Le * bsdfSample.weight;
+        // /*
+        // Continue Tracing
+        // */
+        // BSDFSample bsdfSample;
+        // bool valid = sampleBSDF(sd, sg, bsdfSample);
+        // if (!valid)
+        // {
+        //     break;
+        // }
+        // Le = Le * bsdfSample.weight;
     }
 }

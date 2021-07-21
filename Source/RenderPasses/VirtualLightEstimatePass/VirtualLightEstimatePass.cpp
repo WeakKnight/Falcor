@@ -78,6 +78,7 @@ VirtualLightEstimatePass::SharedPtr VirtualLightEstimatePass::create(RenderConte
 
     Program::Desc estimatePassDesc;
     estimatePassDesc.addShaderLibrary("RenderPasses/VirtualLightEstimatePass/VirtualLightEstimate.cs.slang").csEntry("main").setShaderModel("6_5");
+    estimatePassDesc.setCompilerFlags(Shader::CompilerFlags::FloatingPointModePrecise);
     pPass->mpEstimatePass = ComputePass::create(estimatePassDesc, Program::DefineList(), false);
 
     Program::Desc accumulatePassDesc;
@@ -195,7 +196,7 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
         mpScene->setRaytracingShaderData(pRenderContext, mpEstimatePass->getRootVar());
 
         mpEstimatePass["gFluxBuffer"] = mpCurFluxBuffer;
-        mpEstimatePass["gDiffuseRadianceBuffer"] = mpCurDiffuseRadianceBuffer;
+        cb["gDiffuseRadianceBuffer"] = mpCurDiffuseRadianceBuffer;
 
         mpEstimatePass->execute(pRenderContext, uint3(mPhotonPathCount, 1, 1));
     }
@@ -204,15 +205,25 @@ void VirtualLightEstimatePass::execute(RenderContext* pRenderContext, const Rend
     Blit
     */
     {
-        ShaderVar cb = mpAccumulatePass["CB"];
-        cb["gAccumulatedCount"] = mAccumulatedCount;
-        mpAccumulatePass->execute(pRenderContext, uint3(sampleEliminatedVirtualLights->getCount(), 1, 1));
+        //ShaderVar cb = mpAccumulatePass["CB"];
+        //cb["gAccumulatedCount"] = mAccumulatedCount;
+        //cb["gVirtualLightCount"] = sampleEliminatedVirtualLights->getCount();
+        //mpCurSpecularRadianceContainer->setShaderData(cb["gCurSpecRadianceContainer"]);
+        //mpSpecularRadianceContainer->setShaderData(cb["gSpecRadianceContainer"]);
+
+        //mpAccumulatePass["gCurFluxBuffer"] = mpCurFluxBuffer;
+        //mpAccumulatePass["gFluxBuffer"] = mpFluxBuffer;
+        //mpAccumulatePass["gCurDiffuseRadianceBuffer"] = mpCurDiffuseRadianceBuffer;
+        //mpAccumulatePass["gDiffuseRadianceBuffer"] = mpDiffuseRadianceBuffer;
+
+        //mpAccumulatePass->execute(pRenderContext, uint3(sampleEliminatedVirtualLights->getCount(), 1, 1));
         mAccumulatedCount += 1;
     }
 }
 
 void VirtualLightEstimatePass::renderUI(Gui::Widgets& widget)
 {
+    widget.text("Accumulated Count: " + std::to_string(mAccumulatedCount));
 }
 
 void VirtualLightEstimatePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)

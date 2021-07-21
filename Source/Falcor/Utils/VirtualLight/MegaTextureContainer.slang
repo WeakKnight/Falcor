@@ -122,10 +122,10 @@ struct MegaTextureContainer
         uint2 bottomRight = topLeft + uint2(1, 1);
         bottomRight = uint2(min(bottomRight.x, perItemSize - 1), min(bottomRight.y, perItemSize - 1));
 
-        float3 colTopLeft = readColor(block, uint2(topLeft.x, topLeft.y));
-        float3 colTopRight = readColor(block, uint2(bottomRight.x, topLeft.y));
-        float3 colBottomLeft = readColor(block, uint2(topLeft.x, bottomRight.y));
-        float3 colBottomRight = readColor(block, uint2(bottomRight.x, bottomRight.y));
+        float3 colTopLeft = readColor(itemIndex, uint2(topLeft.x, topLeft.y));
+        float3 colTopRight = readColor(itemIndex, uint2(bottomRight.x, topLeft.y));
+        float3 colBottomLeft = readColor(itemIndex, uint2(topLeft.x, bottomRight.y));
+        float3 colBottomRight = readColor(itemIndex, uint2(bottomRight.x, bottomRight.y));
 
         float2 fracPos = floatUV - floor(floatUV);
         
