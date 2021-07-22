@@ -14,8 +14,8 @@ import Scene.RaytracingInlineHelper;
 import Utils.VirtualLight.VirtualLightContainer;
 import Utils.VirtualLight.MegaTextureContainer;
 import Utils.Sampling.AliasTable;
+import Scene.Material.SimpleBRDF;
 import Experimental.Scene.Material.MaterialShading;
-
 /*
 Macros:
 _PER_FRAME_PATH_COUNT
@@ -107,8 +107,10 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
             break;
         }
 
+        RenderingData rd = toRenderingData(sd, true);
+
         RayDesc searchRay;
-        searchRay.Origin = sd.posW;
+        searchRay.Origin = rd.posW;
         searchRay.Direction = float3(0.0f, 1.0f, 0.0f);
         searchRay.TMin = 0.0f;
         searchRay.TMax = 0.00001f;
@@ -129,19 +131,24 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
         
             if(rayQuery.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE)
             {
-                uint index = rayQuery.CandidatePrimitiveIndex();
-                float3 posW = gVirtualLightContainer.getPosition(index);
-                float radius = gVirtualLightContainer.getRadius(index);
-                float disSquare = dot(sd.posW - posW, sd.posW - posW);
+                uint lightIndex = rayQuery.CandidatePrimitiveIndex();
+                float3 posW = gVirtualLightContainer.getPosition(lightIndex);
+                float radius = gVirtualLightContainer.getRadius(lightIndex);
+                float disSquare = dot(rd.posW - posW, rd.posW - posW);
                 if(disSquare <= radius * radius)
                 {
-                    ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(index);
-                    if(dot(sd.N, virtualLightSd.N) > 0.65f)
+                    float3 virtualLightN = gVirtualLightContainer.getNormal(lightIndex);
+                    if(dot(rd.N, virtualLightN) > 0.65f)
                     {
-                        intersectIndicis[i] = index;
+                        intersectIndicis[i] = lightIndex;
                         maxDisSquare = max(maxDisSquare, disSquare);
                     }
                 }
+            }
+
+            if (i == 7)
+            {
+                rayQuery.Abort();
             }
         }
 
@@ -157,76 +164,66 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                 continue;
             }
             float3 posW = gVirtualLightContainer.getPosition(index);
-            float disSquare = dot(sd.posW - posW, sd.posW - posW);
+            float disSquare = dot(rd.posW - posW, rd.posW - posW);
             weightSum = weightSum + 1.0f - disSquare / (maxDisSquare + 0.001f);
         }
-
-        // /*
-        // Light Tracing Adoption
-        // */
-        float3 L = sd.V;
 
         // /*
         // Do Radiance Transfer
         // */
         for (uint i = 0; i < 8; i++)
         {
-            uint lightIndex = 0; //intersectIndicis[i];
-            // if (lightIndex == kInvalidIndex)
-            // {
-            //     continue;
-            //     // break;
-            // }
-            gDiffuseRadianceBuffer.Store(lightIndex, asuint(1.0));
-            // float3 posW = gVirtualLightContainer.getPosition(lightIndex);
-            // float3 vplNormal = gVirtualLightContainer.getNormal(lightIndex);
-            // float disSquare = dot(sd.posW - posW, sd.posW - posW);
-            // float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
+            uint lightIndex = intersectIndicis[i];
+            if (lightIndex == kInvalidIndex)
+            {
+                continue;
+            }
 
-            // ShadingData virtualLightSd = gVirtualLightContainer.getShadingData(lightIndex);
-            // virtualLightSd.V = sd.V;
+            float3 posW = gVirtualLightContainer.getPosition(lightIndex);
+            float3 vplNormal = gVirtualLightContainer.getNormal(lightIndex);
+            float disSquare = dot(sd.posW - posW, sd.posW - posW);
+            float weight = 1.0f - disSquare / (maxDisSquare + 0.001f);
 
-            // float flux = 0.0;
-            // float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
-            // uint address = lightIndex * 12u;
-            // gDiffuseRadianceBuffer.Store(0, asuint(1.0));
-            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 0u, diffuse.r);
-            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 4u, diffuse.g);
-            // NvInterlockedAddFp32(gDiffuseRadianceBuffer, address + 8u, diffuse.b);
-            // interlockAddDiffuseRadiance(index, diffuse);
-            // flux += luminance(diffuse);
+            ShadingData virtualLightSd;
+            gVirtualLightContainer.getShadingData(lightIndex, virtualLightSd);
+            RenderingData virtualLightRd = toRenderingData(virtualLightSd);
+
+            float flux = 0.0;
+            float3 diffuse = evalDiffuseLambert(virtualLightSd) * Le;
+            interlockAddDiffuseRadiance(lightIndex, diffuse);
+            flux += luminance(diffuse);
             
-            // for(uint j = 0; j < kImportanceSampleCount; j++)
-            // {
-            //     BSDFSample bsdfSample;
-            //     sampleSpecular(virtualLightSd, sampleNext2D(sg), bsdfSample);
-            //     float3 V = bsdfSample.wi;
-            //     float NdotL = dot(vplNormal, L);
-            //     if (min(sd.NdotV, NdotL) > kMinCosTheta)
-            //     {
-            //         float3 H = normalize(V + L);
-            //         float NdotH = saturate(dot(vplNormal, H));
-            //         float LdotH = saturate(dot(L, H));
-            //         float NdotV = saturate(dot(vplNormal, V));
-            //         NdotL = saturate(NdotL);
-            //         float3 specular = weight * kInvImportanceSampleCount * evalSpecular(sd, NdotL, NdotV, NdotH, LdotH) / bsdfSample.pdf;
-            //         gSpecRadianceContainer.interlockAddColorBiliear(index, toLocal(V, vplNormal), specular);
-            //         flux += luminance(specular);
-            //     }
-            // }
+            for(uint j = 0; j < kImportanceSampleCount; j++)
+            {
+                BSDFSample bsdfSample;
+                sampleSpecular(virtualLightSd, sampleNext2D(sg), bsdfSample);
+                float3 V = bsdfSample.wi;
+                float NdotL = dot(vplNormal, rd.L);
+                float NdotV = saturate(dot(vplNormal, V));
+                // if (NdotV > kMinCosTheta && NdotL > kMinCosTheta)
+                {
+                    float3 H = normalize(V + rd.L);
+                    float NdotH = saturate(dot(vplNormal, H));
+                    float LdotH = saturate(dot(rd.L, H));
+                    NdotL = saturate(NdotL);
+                    float3 specular = weight * kInvImportanceSampleCount * evalSpecular(sd, NdotL, NdotV, NdotH, LdotH) / bsdfSample.pdf;
+                    gSpecRadianceContainer.interlockAddColorBiliear(lightIndex, toLocal(V, vplNormal), specular);
+                    flux += luminance(specular);
+                }
+            }
             
-            // interlockAddFlux(index, flux);
+            // interlockAddFlux(lightIndex, flux);
         }
 
-        // /*
-        // Continue Tracing
-        // */
-        // BSDFSample bsdfSample;
-        // bool valid = sampleBSDF(sd, sg, bsdfSample);
-        // if (!valid)
-        // {
-        //     break;
-        // }
-        // Le = Le * bsdfSample.weight;
+        /*
+        Continue Tracing
+        */
+        BSDFSample bsdfSample;
+        bool valid = sampleBSDF(sd, sg, bsdfSample);
+        if (!valid)
+        {
+            break;
+        }
+        Le = Le * bsdfSample.weight;
     }
 }

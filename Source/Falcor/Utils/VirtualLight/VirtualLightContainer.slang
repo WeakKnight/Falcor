@@ -124,13 +124,11 @@ struct VirtualLightContainer
         return (boundingBoxBuffer[i].maxPoint.x - boundingBoxBuffer[i].minPoint.x) * 0.5f;
     }
 
-    ShadingData getShadingData(uint i)
+    void getShadingData(uint i, out ShadingData sd)
     {
-        ShadingData sd;
         VertexData v = getVertexData(i);
         const uint materialID = gScene.getMaterialID(getInstanceId(i));
         sd = prepareShadingData(v, materialID, gScene.materials[materialID], gScene.materialResources[materialID], 0.f, 0.f);
         adjustShadingNormal(sd, v);
-        return sd;
     }
 }

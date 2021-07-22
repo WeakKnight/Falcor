@@ -111,7 +111,8 @@ void main(uint3 launchIndex : SV_DispatchThreadID)
                 {
                     if (dis <= radius)
                     {
-                        ShadingData sd = gVirtualLightContainer.getShadingData(AABBIndex);
+                        ShadingData sd;
+                        gVirtualLightContainer.getShadingData(AABBIndex, sd);
                         gOutput[launchIndex.xy] = float4(sd.diffuse + sd.specular, 1.0);
                         rayQuery.Abort();
                         return;
